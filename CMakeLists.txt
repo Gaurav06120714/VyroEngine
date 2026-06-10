@@ -24,6 +24,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 # ---------------------------------------------------------------- options
 option(VYRO_BUILD_TESTS   "Build VyroEngine unit tests" ON)
 option(VYRO_BUILD_RUNTIME "Build the runtime executable" ON)
+option(VYRO_BUILD_SAMPLES "Build VyroEngine sample programs" ON)
 option(VYRO_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 
 # ---------------------------------------------------------------- warnings
@@ -46,6 +47,10 @@ add_subdirectory(engine)
 
 if(VYRO_BUILD_RUNTIME)
     add_subdirectory(runtime)
+endif()
+
+if(VYRO_BUILD_SAMPLES)
+    add_subdirectory(samples)
 endif()
 
 if(VYRO_BUILD_TESTS)
