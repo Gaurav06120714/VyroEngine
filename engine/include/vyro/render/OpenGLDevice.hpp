@@ -4,6 +4,7 @@
 // (vec3 position, vec4 color, vec2 uv). Built only when GL is enabled.
 #pragma once
 
+#include "vyro/math/Mat4.hpp"
 #include "vyro/render/RHI.hpp"
 
 #include <unordered_map>
@@ -32,9 +33,18 @@ public:
     void draw(const DrawCommand& command) override;
     void end_frame() override;
 
+    // Concrete uniform helpers (used by 3D rendering paths).
+    void set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value);
+    void set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 value);
+
 private:
-    std::unordered_map<u32, u32> m_buffers;  // RHI id -> GL buffer object
-    std::unordered_map<u32, u32> m_programs; // RHI id -> GL program
+    struct GLBuffer {
+        u32 id = 0;
+        u32 target = 0; // GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER
+    };
+
+    std::unordered_map<u32, GLBuffer> m_buffers; // RHI id -> GL buffer
+    std::unordered_map<u32, u32> m_programs;     // RHI id -> GL program
     u32 m_vao = 0;
     u32 m_next_id = 1;
 };

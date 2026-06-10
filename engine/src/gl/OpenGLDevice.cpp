@@ -1,6 +1,7 @@
 // VyroEngine — OpenGL render device implementation
 #include "vyro/render/OpenGLDevice.hpp"
 
+#include "vyro/assets/Mesh.hpp"        // Vertex3D layout
 #include "vyro/core/Log.hpp"
 #include "vyro/render/Renderer2D.hpp" // QuadVertex layout
 
@@ -36,15 +37,37 @@ GLuint compile(GLenum stage, const char* source)
     return shader;
 }
 
+void set_vertex_attributes(VertexFormat format)
+{
+    if (format == VertexFormat::Pos3Normal3UV2) {
+        constexpr GLsizei stride = static_cast<GLsizei>(sizeof(Vertex3D));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 3));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 6));
+    } else {
+        constexpr GLsizei stride = static_cast<GLsizei>(sizeof(QuadVertex));
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 3));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 7));
+    }
+}
+
 } // namespace
 
 OpenGLDevice::OpenGLDevice()
 {
-    // A bound VAO is required to draw in the core profile.
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     VYRO_INFO("OpenGL", "device initialized: {}",
               reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 }
@@ -52,7 +75,7 @@ OpenGLDevice::OpenGLDevice()
 OpenGLDevice::~OpenGLDevice()
 {
     for (auto& [id, buf] : m_buffers) {
-        glDeleteBuffers(1, &buf);
+        glDeleteBuffers(1, &buf.id);
     }
     for (auto& [id, prog] : m_programs) {
         glDeleteProgram(prog);
@@ -64,12 +87,14 @@ OpenGLDevice::~OpenGLDevice()
 
 BufferHandle OpenGLDevice::create_buffer(const BufferDesc& desc)
 {
+    const GLenum target = (desc.type == BufferType::Index) ? GL_ELEMENT_ARRAY_BUFFER : GL_ARRAY_BUFFER;
     GLuint buf = 0;
     glGenBuffers(1, &buf);
-    glBindBuffer(GL_ARRAY_BUFFER, buf);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(desc.size), desc.data, GL_DYNAMIC_DRAW);
+    glBindVertexArray(m_vao);
+    glBindBuffer(target, buf);
+    glBufferData(target, static_cast<GLsizeiptr>(desc.size), desc.data, GL_DYNAMIC_DRAW);
     const u32 id = m_next_id++;
-    m_buffers[id] = buf;
+    m_buffers[id] = GLBuffer{buf, target};
     return BufferHandle{id};
 }
 
@@ -79,22 +104,22 @@ void OpenGLDevice::update_buffer(BufferHandle handle, const void* data, usize si
     if (it == m_buffers.end()) {
         return;
     }
-    glBindBuffer(GL_ARRAY_BUFFER, it->second);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(size), data);
+    glBindBuffer(it->second.target, it->second.id);
+    glBufferSubData(it->second.target, 0, static_cast<GLsizeiptr>(size), data);
 }
 
 void OpenGLDevice::destroy_buffer(BufferHandle handle)
 {
     const auto it = m_buffers.find(handle.id);
     if (it != m_buffers.end()) {
-        glDeleteBuffers(1, &it->second);
+        glDeleteBuffers(1, &it->second.id);
         m_buffers.erase(it);
     }
 }
 
 TextureHandle OpenGLDevice::create_texture(const TextureDesc& /*desc*/)
 {
-    return TextureHandle{m_next_id++}; // texture upload not needed for this demo
+    return TextureHandle{m_next_id++};
 }
 
 void OpenGLDevice::destroy_texture(TextureHandle /*handle*/) {}
@@ -147,20 +172,47 @@ void OpenGLDevice::draw(const DrawCommand& command)
 
     glUseProgram(prog->second);
     glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo->second);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo->second.id);
+    set_vertex_attributes(command.vertex_format);
 
-    // Interleaved QuadVertex: position(vec3), color(vec4), uv(vec2).
-    constexpr GLsizei stride = static_cast<GLsizei>(sizeof(QuadVertex));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 3));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 7));
-
+    if (command.index_buffer.valid()) {
+        const auto ibo = m_buffers.find(command.index_buffer.id);
+        if (ibo != m_buffers.end()) {
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo->second.id);
+            glDrawElements(to_gl_topology(command.topology),
+                           static_cast<GLsizei>(command.index_count), GL_UNSIGNED_INT, nullptr);
+            return;
+        }
+    }
     glDrawArrays(to_gl_topology(command.topology), 0, static_cast<GLsizei>(command.vertex_count));
 }
 
 void OpenGLDevice::end_frame() {}
+
+void OpenGLDevice::set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value)
+{
+    const auto it = m_programs.find(shader.id);
+    if (it == m_programs.end()) {
+        return;
+    }
+    glUseProgram(it->second);
+    const GLint loc = glGetUniformLocation(it->second, name);
+    if (loc >= 0) {
+        glUniformMatrix4fv(loc, 1, GL_FALSE, value.data.data());
+    }
+}
+
+void OpenGLDevice::set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 value)
+{
+    const auto it = m_programs.find(shader.id);
+    if (it == m_programs.end()) {
+        return;
+    }
+    glUseProgram(it->second);
+    const GLint loc = glGetUniformLocation(it->second, name);
+    if (loc >= 0) {
+        glUniform3f(loc, value.x, value.y, value.z);
+    }
+}
 
 } // namespace vyro
