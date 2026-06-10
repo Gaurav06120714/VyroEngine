@@ -40,6 +40,12 @@ enum class PrimitiveTopology : u8 {
     Points,
 };
 
+// Interleaved vertex attribute layouts understood by the backend.
+enum class VertexFormat : u8 {
+    Pos3Color4UV2,  // 2D sprites (QuadVertex)
+    Pos3Normal3UV2, // 3D meshes (Vertex3D)
+};
+
 // ── Opaque resource handles (0 == invalid) ───────────────────────────
 struct BufferHandle {
     u32 id = 0;
@@ -84,6 +90,7 @@ struct DrawCommand {
     u32 index_count = 0;
     u32 vertex_count = 0;
     PrimitiveTopology topology = PrimitiveTopology::Triangles;
+    VertexFormat vertex_format = VertexFormat::Pos3Color4UV2;
 };
 
 // ── Device interface ─────────────────────────────────────────────────
