@@ -109,7 +109,7 @@ void main() { FragColor = vColor; })";
         // The ball.
         push_quad(verts, 0.0f, by, 0.08f, 0.10f, vyro::Vec4{1.0f, 0.55f, 0.10f, 1.0f});
 
-        device.set_viewport(window.width(), window.height());
+        device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
         device.clear(vyro::Vec4{0.07f, 0.08f, 0.12f, 1.0f});
         device.update_buffer(vbo, verts.data(), verts.size() * sizeof(vyro::QuadVertex));
 

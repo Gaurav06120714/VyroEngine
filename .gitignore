@@ -9,6 +9,8 @@ Thumbs.db
 /cmake-build-*/
 *.o
 *.obj
+# Wavefront model files under assets are content, not build artifacts
+!assets/**/*.obj
 *.a
 *.lib
 *.so
