@@ -1,6 +1,7 @@
 // VyroEngine — Engine facade implementation
 #include "vyro/core/Engine.hpp"
 
+#include "vyro/core/Log.hpp"
 #include "vyro/core/Version.hpp"
 
 #include <cstdio>
@@ -23,7 +24,9 @@ bool Engine::init()
     }
     // Future sub-phases initialize subsystems here:
     //   Memory -> Logging -> Events -> Input -> Assets -> ECS -> Renderer.
+    VYRO_INFO("Core", "Initializing {} v{}", kEngineName, kVersionString);
     m_initialized = true;
+    VYRO_INFO("Core", "Engine initialized");
     return true;
 }
 
@@ -32,6 +35,7 @@ void Engine::shutdown()
     if (!m_initialized) {
         return;
     }
+    VYRO_INFO("Core", "Shutting down engine");
     m_initialized = false;
 }
 
