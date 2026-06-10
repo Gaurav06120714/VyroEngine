@@ -24,6 +24,11 @@ public:
 
     [[nodiscard]] u32 width() const { return m_width; }
     [[nodiscard]] u32 height() const { return m_height; }
+
+    // Actual framebuffer size in pixels (may be larger than the logical size on
+    // high-DPI / Retina displays). Use this for glViewport and aspect ratio.
+    [[nodiscard]] u32 framebuffer_width() const;
+    [[nodiscard]] u32 framebuffer_height() const;
     [[nodiscard]] GLFWwindow* native() const { return m_window; }
     [[nodiscard]] bool valid() const { return m_window != nullptr; }
 

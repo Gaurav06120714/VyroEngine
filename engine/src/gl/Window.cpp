@@ -58,6 +58,26 @@ bool Window::is_open() const
     return m_window != nullptr && glfwWindowShouldClose(m_window) == 0;
 }
 
+u32 Window::framebuffer_width() const
+{
+    int w = static_cast<int>(m_width);
+    int h = 0;
+    if (m_window != nullptr) {
+        glfwGetFramebufferSize(m_window, &w, &h);
+    }
+    return static_cast<u32>(w);
+}
+
+u32 Window::framebuffer_height() const
+{
+    int w = 0;
+    int h = static_cast<int>(m_height);
+    if (m_window != nullptr) {
+        glfwGetFramebufferSize(m_window, &w, &h);
+    }
+    return static_cast<u32>(h);
+}
+
 void Window::poll_events()
 {
     glfwPollEvents();
