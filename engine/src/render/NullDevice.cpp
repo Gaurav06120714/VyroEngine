@@ -9,6 +9,8 @@ BufferHandle NullDevice::create_buffer(const BufferDesc& /*desc*/)
     return BufferHandle{m_next_id++};
 }
 
+void NullDevice::update_buffer(BufferHandle /*handle*/, const void* /*data*/, usize /*size*/) {}
+
 void NullDevice::destroy_buffer(BufferHandle handle)
 {
     if (handle.valid()) {

@@ -96,6 +96,7 @@ public:
 
     // Resource lifetime.
     [[nodiscard]] virtual BufferHandle create_buffer(const BufferDesc& desc) = 0;
+    virtual void update_buffer(BufferHandle handle, const void* data, usize size) = 0;
     virtual void destroy_buffer(BufferHandle handle) = 0;
     [[nodiscard]] virtual TextureHandle create_texture(const TextureDesc& desc) = 0;
     virtual void destroy_texture(TextureHandle handle) = 0;

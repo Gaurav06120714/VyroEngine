@@ -28,6 +28,7 @@ public:
     [[nodiscard]] RenderBackend backend() const override { return RenderBackend::Null; }
 
     [[nodiscard]] BufferHandle create_buffer(const BufferDesc& desc) override;
+    void update_buffer(BufferHandle handle, const void* data, usize size) override;
     void destroy_buffer(BufferHandle handle) override;
     [[nodiscard]] TextureHandle create_texture(const TextureDesc& desc) override;
     void destroy_texture(TextureHandle handle) override;
