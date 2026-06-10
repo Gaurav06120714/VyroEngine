@@ -1,8 +1,17 @@
 // VyroEngine — Runtime entry point
-// Boots the engine, runs a trivial loop, and shuts down cleanly.
+// Boots the engine, exercises the foundation subsystems, and shuts down.
 #include "vyro/core/Engine.hpp"
+#include "vyro/core/Log.hpp"
 
 #include <cstdio>
+
+namespace {
+
+struct TickEvent {
+    int frame = 0;
+};
+
+} // namespace
 
 int main(int /*argc*/, char** /*argv*/)
 {
@@ -14,16 +23,19 @@ int main(int /*argc*/, char** /*argv*/)
         return 1;
     }
 
-    std::printf("[VyroEngine] Engine initialized: %s\n",
-                engine.is_initialized() ? "true" : "false");
+    // Demonstrate the wired foundation: events, input action mapping, assets.
+    engine.events().subscribe<TickEvent>(
+        [](const TickEvent& e) { VYRO_INFO("Loop", "tick {}", e.frame); });
 
-    // Placeholder main loop. Replaced by the real game loop in Phase 1.5+.
+    engine.input().bind_action("Quit", vyro::KeyCode::Escape);
+
     constexpr int kFrames = 3;
-    for (int frame = 0; frame < kFrames; ++frame) {
-        std::printf("[VyroEngine] tick %d/%d\n", frame + 1, kFrames);
+    for (int frame = 1; frame <= kFrames; ++frame) {
+        engine.input().new_frame();
+        engine.events().publish(TickEvent{frame});
     }
 
     engine.shutdown();
-    std::printf("[VyroEngine] Shutdown complete.\n");
+    VYRO_INFO("Core", "Shutdown complete");
     return 0;
 }
