@@ -12,14 +12,11 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-OUT = "VyroEngine_Research_Paper.pdf"
+OUT = "../VyroEngine_Research_Paper.pdf"
 
 # ---------------------------------------------------------------- styles
-ACCENT = colors.HexColor("#5b21b6")
-ACCENT2 = colors.HexColor("#7c3aed")
-DARK = colors.HexColor("#1e1b2e")
-GREY = colors.HexColor("#444444")
-LIGHT = colors.HexColor("#f3f0fa")
+# Pure black-and-white academic style (serif), matching the reference report.
+BLACK = colors.black
 
 styles = getSampleStyleSheet()
 
@@ -27,69 +24,68 @@ def S(name, **kw):
     base = kw.pop("parent", styles["Normal"])
     return ParagraphStyle(name, parent=base, **kw)
 
-st_title = S("VTitle", fontName="Helvetica-Bold", fontSize=26, leading=31,
-             textColor=DARK, alignment=TA_CENTER, spaceAfter=10)
-st_subtitle = S("VSub", fontName="Helvetica", fontSize=13, leading=18,
-                textColor=ACCENT, alignment=TA_CENTER, spaceAfter=6)
-st_author = S("VAuth", fontSize=11, leading=16, textColor=GREY, alignment=TA_CENTER)
-st_h1 = S("VH1", fontName="Helvetica-Bold", fontSize=16, leading=20,
-          textColor=ACCENT, spaceBefore=16, spaceAfter=8)
-st_h2 = S("VH2", fontName="Helvetica-Bold", fontSize=12.5, leading=16,
-          textColor=DARK, spaceBefore=10, spaceAfter=5)
-st_body = S("VBody", fontSize=10, leading=15, textColor=colors.black,
-            alignment=TA_JUSTIFY, spaceAfter=7)
-st_abstract = S("VAbs", fontSize=10, leading=15, textColor=GREY,
-                alignment=TA_JUSTIFY, spaceAfter=6, leftIndent=8, rightIndent=8)
-st_cap = S("VCap", fontSize=8.5, leading=11, textColor=GREY, alignment=TA_CENTER,
-           spaceBefore=3, spaceAfter=10)
-st_bullet = S("VBul", fontSize=10, leading=14, textColor=colors.black, alignment=TA_JUSTIFY)
+st_title = S("VTitle", fontName="Times-Bold", fontSize=24, leading=29,
+             textColor=BLACK, alignment=TA_CENTER, spaceAfter=8)
+st_subtitle = S("VSub", fontName="Times-Roman", fontSize=13, leading=18,
+                textColor=BLACK, alignment=TA_CENTER, spaceAfter=6)
+st_author = S("VAuth", fontName="Times-Roman", fontSize=12, leading=18,
+              textColor=BLACK, alignment=TA_CENTER)
+st_h1 = S("VH1", fontName="Times-Bold", fontSize=16, leading=20,
+          textColor=BLACK, spaceBefore=16, spaceAfter=6)
+st_h2 = S("VH2", fontName="Times-Bold", fontSize=12.5, leading=16,
+          textColor=BLACK, spaceBefore=10, spaceAfter=5)
+st_body = S("VBody", fontName="Times-Roman", fontSize=11, leading=15.5,
+            textColor=BLACK, alignment=TA_JUSTIFY, spaceAfter=7)
+st_abstract = S("VAbs", fontName="Times-Roman", fontSize=11, leading=15.5,
+                textColor=BLACK, alignment=TA_JUSTIFY, spaceAfter=6)
+st_cap = S("VCap", fontName="Times-Italic", fontSize=9, leading=12, textColor=BLACK,
+           alignment=TA_CENTER, spaceBefore=3, spaceAfter=10)
+st_bullet = S("VBul", fontName="Times-Roman", fontSize=11, leading=15,
+              textColor=BLACK, alignment=TA_JUSTIFY)
 st_code = S("VCode", fontName="Courier", fontSize=8.5, leading=11,
-            textColor=DARK, backColor=LIGHT, leftIndent=6, rightIndent=6,
-            spaceBefore=4, spaceAfter=8, borderPadding=6)
-st_ref = S("VRef", fontSize=9, leading=13, textColor=colors.black,
-           alignment=TA_LEFT, leftIndent=14, firstLineIndent=-14, spaceAfter=4)
+            textColor=BLACK, leftIndent=6, rightIndent=6,
+            spaceBefore=4, spaceAfter=8, borderPadding=6,
+            borderWidth=0.5, borderColor=BLACK)
+st_ref = S("VRef", fontName="Times-Roman", fontSize=10, leading=13.5,
+           textColor=BLACK, alignment=TA_LEFT, leftIndent=14,
+           firstLineIndent=-14, spaceAfter=4)
 
 
 class DocTemplate(BaseDocTemplate):
     def __init__(self, fn, **kw):
+        self._cover = kw.pop("cover_page", 1)
         super().__init__(fn, **kw)
-        frame = Frame(20*mm, 18*mm, A4[0]-40*mm, A4[1]-36*mm, id="main")
+        frame = Frame(22*mm, 18*mm, A4[0]-44*mm, A4[1]-34*mm, id="main")
         self.addPageTemplates([PageTemplate(id="all", frames=[frame],
                                             onPage=self._decor)])
 
     def _decor(self, canvas, doc):
+        # No colors, no header bars. Simple centered page number, skip cover.
+        if doc.page <= self._cover:
+            return
         canvas.saveState()
-        # top accent bar
-        canvas.setFillColor(ACCENT)
-        canvas.rect(0, A4[1]-8*mm, A4[0], 8*mm, fill=1, stroke=0)
-        # footer
-        canvas.setFillColor(GREY)
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(20*mm, 10*mm, "VyroEngine — Architecture & Design of a Modern Game Engine")
-        canvas.drawRightString(A4[0]-20*mm, 10*mm, "Page %d" % doc.page)
-        canvas.setStrokeColor(colors.HexColor("#dddddd"))
-        canvas.line(20*mm, 14*mm, A4[0]-20*mm, 14*mm)
+        canvas.setFillColor(BLACK)
+        canvas.setFont("Times-Roman", 10)
+        canvas.drawCentredString(A4[0]/2.0, 12*mm, "%d" % doc.page)
         canvas.restoreState()
 
 
-def tbl(data, widths, header=True, font=8.5):
+def tbl(data, widths, header=True, font=9):
     t = Table(data, colWidths=widths, repeatRows=1 if header else 0)
     cmds = [
-        ("FONTNAME", (0,0), (-1,-1), "Helvetica"),
+        ("FONTNAME", (0,0), (-1,-1), "Times-Roman"),
         ("FONTSIZE", (0,0), (-1,-1), font),
-        ("TEXTCOLOR", (0,0), (-1,-1), colors.black),
+        ("TEXTCOLOR", (0,0), (-1,-1), BLACK),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("GRID", (0,0), (-1,-1), 0.4, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, LIGHT]),
+        ("GRID", (0,0), (-1,-1), 0.5, BLACK),
         ("TOPPADDING", (0,0), (-1,-1), 4),
         ("BOTTOMPADDING", (0,0), (-1,-1), 4),
         ("LEFTPADDING", (0,0), (-1,-1), 5),
     ]
     if header:
         cmds += [
-            ("BACKGROUND", (0,0), (-1,0), ACCENT),
-            ("TEXTCOLOR", (0,0), (-1,0), colors.white),
-            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTNAME", (0,0), (-1,0), "Times-Bold"),
+            ("LINEBELOW", (0,0), (-1,0), 1.0, BLACK),
         ]
     t.setStyle(TableStyle(cmds))
     return t
@@ -104,24 +100,24 @@ def bullets(items, style=st_bullet):
 def P(t, s=st_body): return Paragraph(t, s)
 def H1(t): return Paragraph(t, st_h1)
 def H2(t): return Paragraph(t, st_h2)
-def hr(): return HRFlowable(width="100%", thickness=0.6, color=ACCENT2, spaceBefore=4, spaceAfter=8)
+def hr(): return HRFlowable(width="100%", thickness=0.7, color=BLACK, spaceBefore=4, spaceAfter=8)
 
 E = []  # story
 
 # =================================================================== COVER
-E += [Spacer(1, 40*mm)]
+E += [Spacer(1, 28*mm)]
 E += [P("VyroEngine", st_title)]
-E += [P("Architecture, Design, and Engineering Methodology of a Modern Cross-Platform Game Engine Built From Scratch", st_subtitle)]
-E += [Spacer(1, 6*mm), hr()]
-E += [P("A Technical Research Paper", st_author)]
-E += [Spacer(1, 14*mm)]
-E += [P("<b>Gaurav</b>", st_author)]
-E += [P("Principal Engine Architect, VyroEcosystem", st_author)]
-E += [P("gauravganesh1214@gmail.com", st_author)]
-E += [Spacer(1, 10*mm)]
-E += [P("Version 1.0 &nbsp;|&nbsp; June 2026", st_author)]
-E += [Spacer(1, 30*mm)]
-E += [P("<i>Part of the VyroEcosystem initiative — github.com/Gaurav06120714/VyroEngine</i>", st_cap)]
+E += [Spacer(1, 3*mm), hr(), Spacer(1, 10*mm)]
+E += [P("Architecture, Design, and Engineering Methodology", st_subtitle)]
+E += [P("of a Modern Cross-Platform Game Engine Built From Scratch", st_subtitle)]
+E += [Spacer(1, 16*mm)]
+E += [P("A Technical Research Paper", st_subtitle)]
+E += [Spacer(1, 16*mm)]
+E += [P("By", st_author)]
+E += [Spacer(1, 4*mm)]
+E += [P("<b>Teegulla Gaurav Ganesh</b>", st_author)]
+E += [Spacer(1, 22*mm)]
+E += [P("June 2026", st_author)]
 E += [PageBreak()]
 
 # =================================================================== ABSTRACT
@@ -612,6 +608,6 @@ doc = DocTemplate(OUT, pagesize=A4,
                   leftMargin=20*mm, rightMargin=20*mm,
                   topMargin=18*mm, bottomMargin=18*mm,
                   title="VyroEngine: Architecture and Design of a Modern Game Engine",
-                  author="Gaurav")
+                  author="Teegulla Gaurav Ganesh")
 doc.build(E)
 print("WROTE", OUT)
