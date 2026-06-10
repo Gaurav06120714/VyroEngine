@@ -25,6 +25,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 option(VYRO_BUILD_TESTS   "Build VyroEngine unit tests" ON)
 option(VYRO_BUILD_RUNTIME "Build the runtime executable" ON)
 option(VYRO_BUILD_SAMPLES "Build VyroEngine sample programs" ON)
+option(VYRO_ENABLE_GL     "Build the OpenGL + GLFW window backend" ON)
+
+# Help find_package locate Homebrew-installed dependencies (e.g. glfw3).
+if(APPLE AND EXISTS "/opt/homebrew")
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/opt/homebrew/opt/glfw")
+endif()
 option(VYRO_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 
 # ---------------------------------------------------------------- warnings
