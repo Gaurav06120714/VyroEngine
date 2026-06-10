@@ -17,7 +17,7 @@ Think: the openness of Godot, the performance ceiling of Unreal, and the accessi
 | Phase | Status |
 |-------|--------|
 | Phase 0 — Research & Planning | ✅ Complete |
-| Phase 1 — Core Engine Foundation | 🔧 In Progress |
+| Phase 1 — Core Engine Foundation | ✅ Complete |
 | Phase 2 — ECS Architecture | 📋 Planned |
 | Phase 3 — Rendering Engine | 📋 Planned |
 | Phase 4 — Physics Engine | 📋 Planned |
