@@ -1,5 +1,6 @@
 // VyroEngine — Engine facade implementation
 #include "vyro/core/Engine.hpp"
+
 #include "vyro/core/Version.hpp"
 
 #include <cstdio>
@@ -8,13 +9,15 @@ namespace vyro {
 
 Engine::Engine() = default;
 
-Engine::~Engine() {
+Engine::~Engine()
+{
     if (m_initialized) {
         shutdown();
     }
 }
 
-bool Engine::init() {
+bool Engine::init()
+{
     if (m_initialized) {
         return true;
     }
@@ -24,14 +27,16 @@ bool Engine::init() {
     return true;
 }
 
-void Engine::shutdown() {
+void Engine::shutdown()
+{
     if (!m_initialized) {
         return;
     }
     m_initialized = false;
 }
 
-void Engine::printBanner() {
+void Engine::print_banner()
+{
     std::printf(
         "============================================\n"
         "  %s v%s\n"

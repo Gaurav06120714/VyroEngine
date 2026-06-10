@@ -17,7 +17,8 @@ static int g_failures = 0;
         }                                                                \
     } while (0)
 
-int main() {
+int main()
+{
     std::printf("[tests] VyroEngine core tests\n");
 
     // Version sanity.
@@ -27,11 +28,11 @@ int main() {
 
     // Engine lifecycle.
     vyro::Engine engine;
-    CHECK(!engine.isInitialized());
+    CHECK(!engine.is_initialized());
     CHECK(engine.init());
-    CHECK(engine.isInitialized());
+    CHECK(engine.is_initialized());
     engine.shutdown();
-    CHECK(!engine.isInitialized());
+    CHECK(!engine.is_initialized());
 
     // Idempotent init/shutdown.
     CHECK(engine.init());

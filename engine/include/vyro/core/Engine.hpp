@@ -20,9 +20,9 @@ public:
     void shutdown();
 
     // Print engine name/version banner to stdout.
-    static void printBanner();
+    static void print_banner();
 
-    [[nodiscard]] bool isInitialized() const { return m_initialized; }
+    [[nodiscard]] bool is_initialized() const { return m_initialized; }
 
 private:
     bool m_initialized = false;

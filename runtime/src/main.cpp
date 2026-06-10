@@ -4,8 +4,9 @@
 
 #include <cstdio>
 
-int main(int /*argc*/, char** /*argv*/) {
-    vyro::Engine::printBanner();
+int main(int /*argc*/, char** /*argv*/)
+{
+    vyro::Engine::print_banner();
 
     vyro::Engine engine;
     if (!engine.init()) {
@@ -14,7 +15,7 @@ int main(int /*argc*/, char** /*argv*/) {
     }
 
     std::printf("[VyroEngine] Engine initialized: %s\n",
-                engine.isInitialized() ? "true" : "false");
+                engine.is_initialized() ? "true" : "false");
 
     // Placeholder main loop. Replaced by the real game loop in Phase 1.5+.
     constexpr int kFrames = 3;
