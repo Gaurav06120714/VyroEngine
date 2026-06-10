@@ -8,6 +8,7 @@
 #include "vyro/core/EventBus.hpp"
 #include "vyro/core/Types.hpp"
 #include "vyro/platform/Input.hpp"
+#include "vyro/scene/SceneManager.hpp"
 
 namespace vyro {
 
@@ -32,6 +33,7 @@ public:
     [[nodiscard]] EventBus& events() { return m_events; }
     [[nodiscard]] Input& input() { return m_input; }
     [[nodiscard]] AssetManager& assets() { return m_assets; }
+    [[nodiscard]] SceneManager& scenes() { return m_scenes; }
 
 private:
     bool m_initialized = false;
@@ -39,6 +41,7 @@ private:
     EventBus m_events;
     Input m_input;
     AssetManager m_assets;
+    SceneManager m_scenes;
 };
 
 } // namespace vyro
