@@ -45,6 +45,7 @@ private:
 
     std::unordered_map<u32, GLBuffer> m_buffers; // RHI id -> GL buffer
     std::unordered_map<u32, u32> m_programs;     // RHI id -> GL program
+    std::unordered_map<u32, u32> m_textures;     // RHI id -> GL texture
     u32 m_vao = 0;
     u32 m_next_id = 1;
 };

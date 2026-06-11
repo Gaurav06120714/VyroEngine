@@ -82,6 +82,9 @@ OpenGLDevice::~OpenGLDevice()
     for (auto& [id, prog] : m_programs) {
         glDeleteProgram(prog);
     }
+    for (auto& [id, tex] : m_textures) {
+        glDeleteTextures(1, &tex);
+    }
     if (m_vao != 0) {
         glDeleteVertexArrays(1, &m_vao);
     }
@@ -119,12 +122,32 @@ void OpenGLDevice::destroy_buffer(BufferHandle handle)
     }
 }
 
-TextureHandle OpenGLDevice::create_texture(const TextureDesc& /*desc*/)
+TextureHandle OpenGLDevice::create_texture(const TextureDesc& desc)
 {
-    return TextureHandle{m_next_id++};
+    GLuint tex = 0;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, static_cast<GLsizei>(desc.width),
+                 static_cast<GLsizei>(desc.height), 0, GL_RGBA, GL_UNSIGNED_BYTE, desc.pixels);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    const u32 id = m_next_id++;
+    m_textures[id] = tex;
+    return TextureHandle{id};
 }
 
-void OpenGLDevice::destroy_texture(TextureHandle /*handle*/) {}
+void OpenGLDevice::destroy_texture(TextureHandle handle)
+{
+    const auto it = m_textures.find(handle.id);
+    if (it != m_textures.end()) {
+        glDeleteTextures(1, &it->second);
+        m_textures.erase(it);
+    }
+}
 
 ShaderHandle OpenGLDevice::create_shader(const ShaderDesc& desc)
 {
@@ -176,6 +199,14 @@ void OpenGLDevice::draw(const DrawCommand& command)
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo->second.id);
     set_vertex_attributes(command.vertex_format);
+
+    if (command.texture.valid()) {
+        const auto tex = m_textures.find(command.texture.id);
+        if (tex != m_textures.end()) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex->second);
+        }
+    }
 
     if (command.index_buffer.valid()) {
         const auto ibo = m_buffers.find(command.index_buffer.id);

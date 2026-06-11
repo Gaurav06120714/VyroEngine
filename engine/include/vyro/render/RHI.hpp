@@ -87,6 +87,7 @@ struct DrawCommand {
     ShaderHandle shader;
     BufferHandle vertex_buffer;
     BufferHandle index_buffer; // optional; if invalid, draws vertex_count verts
+    TextureHandle texture;     // optional; bound to sampler unit 0 when valid
     u32 index_count = 0;
     u32 vertex_count = 0;
     PrimitiveTopology topology = PrimitiveTopology::Triangles;
