@@ -26,8 +26,9 @@ Full plan: [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
 | V2 Phase | Goal | Status | Tag |
 |----------|------|--------|-----|
 | V2.1 — Visual Editor | Dear ImGui editor (hierarchy, inspector, assets, stats over a live 3D viewport) | ✅ Complete | v1.1.0 |
-| V2.2 — UDP Transport | Real socket networking behind `ITransport` | 🔧 In Progress | v1.2.0 |
-| V2.3 — Lua Scripting | Lua 5.4 backend behind `ScriptEngine` | 📋 Planned | v1.3.0 |
+| V2.2 — UDP Transport | Real socket networking behind `ITransport` | ✅ Complete | v1.2.0 |
+| V2.3 — Lua Scripting | Lua 5.4 backend behind `ScriptEngine` | 🔧 In Progress | v1.3.0 |
+| V2.3 — Lua Scripting | Lua 5.4 backend behind `ScriptEngine` | 🔧 In Progress | v1.3.0 |
 | V2.4 — Vulkan Backend | `VulkanDevice` RHI via MoltenVK, scheduled by the FrameGraph | 📋 Planned | v1.4.0 |
 | V2.5 — Texturing & Materials | PNG loading, GPU textures, textured PBR | 📋 Planned | v1.5.0 |
 | **v2.0.0** | All of the above stabilized | 📋 Planned | v2.0.0 |
