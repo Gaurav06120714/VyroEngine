@@ -2,8 +2,8 @@
 file(GLOB_RECURSE VYRO_ENGINE_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
-# GL/window backend sources are built separately in the optional vyro_gl target.
-list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/gl/")
+# Backend sources (GL window, Lua) are built in their optional targets.
+list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/(gl|lua)/")
 
 add_library(vyro_engine STATIC ${VYRO_ENGINE_SOURCES})
 add_library(vyro::engine ALIAS vyro_engine)
@@ -15,6 +15,28 @@ target_link_libraries(vyro_engine PRIVATE vyro_warnings)
 
 set_target_properties(vyro_engine PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
+
+# ── Optional Lua scripting backend (vyro_lua) ────────────────────────
+if(VYRO_ENABLE_LUA)
+    find_path(LUA_INCLUDE_DIR lua.hpp PATH_SUFFIXES lua
+        PATHS /opt/homebrew/opt/lua/include /usr/local/include /usr/include)
+    find_library(LUA_LIBRARY NAMES lua liblua
+        PATHS /opt/homebrew/opt/lua/lib /usr/local/lib /usr/lib)
+
+    if(LUA_INCLUDE_DIR AND LUA_LIBRARY)
+        add_library(vyro_lua STATIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/lua/LuaScriptEngine.cpp)
+        add_library(vyro::lua ALIAS vyro_lua)
+        target_include_directories(vyro_lua
+            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+            PRIVATE ${LUA_INCLUDE_DIR})
+        target_link_libraries(vyro_lua PUBLIC vyro::engine PRIVATE ${LUA_LIBRARY})
+        set(VYRO_LUA_AVAILABLE TRUE PARENT_SCOPE)
+        message(STATUS "VyroEngine: Lua scripting backend (vyro_lua) enabled — ${LUA_LIBRARY}")
+    else()
+        message(WARNING "VyroEngine: VYRO_ENABLE_LUA set but Lua not found; skipping vyro_lua")
+    endif()
+endif()
 
 # ── Optional OpenGL + GLFW backend (vyro_gl) ─────────────────────────
 if(VYRO_ENABLE_GL)
