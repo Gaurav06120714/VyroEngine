@@ -29,8 +29,8 @@ Full plan: [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
 | V2.2 — UDP Transport | Real socket networking behind `ITransport` | ✅ Complete | v1.2.0 |
 | V2.3 — Lua Scripting | Lua backend behind the `ScriptEngine` surface | ✅ Complete | v1.3.0 |
 | V2.4 — Vulkan Backend | Real Vulkan via MoltenVK: device + resources + on-screen swapchain rendering | ✅ Complete | v1.4.0 |
-| V2.5 — Texturing & Materials | PNG loading, GPU textures, textured PBR | 🔧 In Progress | v1.5.0 |
-| **v2.0.0** | All of the above stabilized | 📋 Planned | v2.0.0 |
+| V2.5 — Texturing & Materials | PNG loading, GPU textures, UV-textured materials | ✅ Complete | v1.5.0 |
+| **v2.0.0** | All of the above stabilized | ✅ Released | v2.0.0 |
 
 ---
 
