@@ -38,7 +38,7 @@ Full plan: [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
 
 | Game | Description | Run |
 |------|-------------|-----|
-| **VyroStrike** | 3D arcade shooter: fly the spaceship, shoot down the red raiders. ECS + Input + collision + OBJ assets + GL rendering. | `./build/bin/VyroStrike` |
+| **VyroStrike: Outbreak** | 3D zombie shooter: you are the soldier, gun down the shambling horde. ECS + Input + collision + GLB character models + GL rendering. | `./build/bin/VyroStrike` |
 
 Controls: **A/D** move · **Space** shoot · **R** restart · **Esc** quit
 
