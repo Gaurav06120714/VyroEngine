@@ -23,7 +23,7 @@ Think: the openness of Godot, the performance ceiling of Unreal, and the accessi
 | Phase 4 — Physics Engine | ✅ Complete |
 | Phase 5 — Audio Engine | ✅ Complete |
 | Phase 6 — Animation System | ✅ Complete |
-| Phase 7 — Scripting System | 📋 Planned |
+| Phase 7 — Scripting System | ✅ Complete |
 | Phase 8 — Editor Development | 📋 Planned |
 | Phase 9 — Networking | 📋 Planned |
 | Phase 10 — Advanced Graphics | 📋 Planned |
