@@ -59,6 +59,10 @@ if(VYRO_BUILD_SAMPLES)
     add_subdirectory(samples)
 endif()
 
+if(VYRO_IMGUI_AVAILABLE)
+    add_subdirectory(editor)
+endif()
+
 if(VYRO_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
