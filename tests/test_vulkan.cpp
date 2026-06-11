@@ -16,7 +16,7 @@ void ensure_icd()
     if (std::getenv("VK_ICD_FILENAMES") != nullptr) {
         return;
     }
-    const char* icd = "/opt/homebrew/opt/molten-vk/share/vulkan/icd.d/MoltenVK_icd.json";
+    const char* icd = "/opt/homebrew/opt/molten-vk/etc/vulkan/icd.d/MoltenVK_icd.json";
     if (std::filesystem::exists(icd)) {
         setenv("VK_ICD_FILENAMES", icd, 1);
     }
