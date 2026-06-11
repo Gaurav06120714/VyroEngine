@@ -1,15 +1,16 @@
-// VyroStrike — the first game built on VyroEngine.
-// Fly the spaceship over the grid, dodge the incoming red raiders, and shoot
-// them down. Built entirely from engine systems:
-//   ECS Registry/View   — players, bullets, and enemies are entities
+// VyroStrike: Outbreak — a zombie shooter built on VyroEngine.
+// You are the soldier. The horde shambles toward you — hold the line.
+// Built entirely from engine systems:
+//   ECS Registry/View   — bullets and zombies are entities
 //   Input               — rebindable action map fed from the window's keys
 //   Physics collision   — sphere-sphere hit tests
-//   OBJ/MTL assets      — the spaceship model
+//   GLB/glTF assets     — textured soldier and zombie models (Poly Pizza)
 //   OpenGL RHI          — textured, lit 3D rendering
 //
 // Controls:  A/D or Left/Right = move   Space = shoot   R = restart   Esc = quit
 #include "vyro/assets/Image.hpp"
 #include "vyro/assets/Mesh.hpp"
+#include "vyro/assets/GlbLoader.hpp"
 #include "vyro/assets/ObjLoader.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/Log.hpp"
@@ -45,7 +46,7 @@ struct EnemyTag {};
 // ── Tuning ───────────────────────────────────────────────────────────
 constexpr vyro::f32 kArenaHalfWidth = 5.0f;
 constexpr vyro::f32 kPlayerZ = 4.0f;
-constexpr vyro::f32 kPlayerSpeed = 8.0f;
+constexpr vyro::f32 kPlayerSpeed = 6.5f;
 constexpr vyro::f32 kBulletSpeed = 18.0f;
 constexpr vyro::f32 kFireCooldown = 0.22f;
 constexpr vyro::f32 kSpawnZ = -28.0f;
@@ -58,7 +59,7 @@ struct GameState {
     vyro::f32 fire_timer = 0.0f;
     vyro::f32 spawn_timer = 0.0f;
     vyro::f32 spawn_interval = 1.4f;
-    vyro::f32 enemy_speed = 5.0f;
+    vyro::f32 enemy_speed = 2.2f;
     int score = 0;
     bool game_over = false;
 };
@@ -79,14 +80,20 @@ void pump_input(vyro::Input& input, GLFWwindow* window)
     feed(GLFW_KEY_ESCAPE, vyro::KeyCode::Escape);
 }
 
-vyro::MeshData load_ship()
+// Load a GLB character/prop with its embedded texture (white fallback).
+vyro::GlbModel load_character(const char* rel)
 {
-    for (const char* p : {"assets/models/model.obj", "../assets/models/model.obj"}) {
-        if (auto r = vyro::load_obj(p); r.has_value()) {
+    for (const char* prefix : {"", "../"}) {
+        if (auto r = vyro::load_glb(std::string(prefix) + rel); r.has_value()) {
+            VYRO_INFO("Game", "loaded '{}' ({} verts, textured={})", rel,
+                      r->mesh.vertices.size(), r->has_texture);
             return std::move(r.value());
         }
     }
-    return vyro::make_cube(1.0f);
+    VYRO_WARN("Game", "missing '{}'; using cube", rel);
+    vyro::GlbModel fallback;
+    fallback.mesh = vyro::make_cube(1.0f);
+    return fallback;
 }
 
 vyro::Mat4 fit_transform(const vyro::MeshData& mesh, vyro::f32 target)
@@ -139,9 +146,9 @@ vyro::MeshData tinted_cube(vyro::f32 size, vyro::Vec3 color)
 int main()
 {
     vyro::Engine::print_banner();
-    VYRO_INFO("Game", "VyroStrike — A/D move, Space shoot, R restart, Esc quit");
+    VYRO_INFO("Game", "VyroStrike: Outbreak — A/D move, Space shoot, R restart, Esc quit");
 
-    vyro::Window window(1100, 760, "VyroStrike — score 0");
+    vyro::Window window(1100, 760, "VyroStrike: Outbreak — score 0");
     if (!window.valid()) {
         return 1;
     }
@@ -173,13 +180,28 @@ vec3 base=texture(u_texture,vUV).rgb*vColor;
 FragColor=vec4(base*(0.35+0.65*d),1.0); })";
     const auto shader = device.create_shader({vs, fs});
 
-    // ── Assets ───────────────────────────────────────────────────────
-    const vyro::MeshData ship_mesh = load_ship();
-    const GpuMesh ship = upload(device, ship_mesh);
-    const vyro::Mat4 ship_fit = fit_transform(ship_mesh, 1.6f);
+    // ── Assets: real people and guns (GLB with embedded textures) ────
+    vyro::GlbModel soldier_model = load_character("assets/models/characters/soldier_shooting.glb");
+    vyro::GlbModel zombie_model = load_character("assets/models/characters/zombie_animated.glb");
 
-    const GpuMesh enemy = upload(device, tinted_cube(1.0f, {0.95f, 0.25f, 0.2f}));
-    const GpuMesh bullet = upload(device, tinted_cube(0.28f, {1.0f, 0.9f, 0.3f}));
+    const GpuMesh soldier = upload(device, soldier_model.mesh);
+    const vyro::Mat4 soldier_fit = fit_transform(soldier_model.mesh, 1.8f);
+    const GpuMesh zombie = upload(device, zombie_model.mesh);
+    const vyro::Mat4 zombie_fit = fit_transform(zombie_model.mesh, 1.9f);
+
+    auto upload_model_tex = [&](const vyro::GlbModel& m) {
+        if (m.has_texture) {
+            return device.create_texture({m.texture.width, m.texture.height,
+                                          vyro::TextureFormat::RGBA8, m.texture.pixels.data()});
+        }
+        const vyro::Image white_px = vyro::make_solid(255, 255, 255);
+        return device.create_texture(
+            {white_px.width, white_px.height, vyro::TextureFormat::RGBA8, white_px.pixels.data()});
+    };
+    const auto soldier_tex = upload_model_tex(soldier_model);
+    const auto zombie_tex = upload_model_tex(zombie_model);
+
+    const GpuMesh bullet = upload(device, tinted_cube(0.22f, {1.0f, 0.85f, 0.25f}));
 
     const vyro::Image checker = vyro::make_checkerboard(256, 32, 70, 75, 95, 35, 38, 52);
     const auto checker_tex = device.create_texture(
@@ -284,7 +306,7 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
             if (state.spawn_timer <= 0.0f) {
                 state.spawn_timer = state.spawn_interval;
                 state.spawn_interval = std::max(0.55f, 1.4f - static_cast<vyro::f32>(state.score) * 0.02f);
-                state.enemy_speed = 5.0f + static_cast<vyro::f32>(state.score) * 0.08f;
+                state.enemy_speed = 2.2f + static_cast<vyro::f32>(state.score) * 0.06f;
                 const auto e = world.create_entity();
                 world.add_component<Position>(e, Position{{spawn_x(rng), 0.0f, kSpawnZ}});
                 world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, state.enemy_speed}});
@@ -341,23 +363,27 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
 
         draw_mesh(ground, vyro::Mat4::identity(), checker_tex);
 
-        // Player ship: nose toward the enemies (-z).
-        const vyro::Mat4 ship_model = vyro::Mat4::translation({state.player_x, 0.0f, kPlayerZ})
-                                      * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f) * ship_fit;
-        draw_mesh(ship, ship_model, white_tex);
+        // The soldier: feet on the ground, rifle facing the horde (-z).
+        const vyro::Mat4 soldier_pose = vyro::Mat4::translation({state.player_x, 0.0f, kPlayerZ})
+                                        * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f)
+                                        * soldier_fit;
+        draw_mesh(soldier, soldier_pose, soldier_tex);
 
+        // Zombies shamble toward the player, facing +z.
         world.view<Position, EnemyTag>().for_each([&](Position& p, EnemyTag&) {
-            draw_mesh(enemy, vyro::Mat4::translation(p.value), white_tex);
+            const vyro::Mat4 pose = vyro::Mat4::translation(p.value) * zombie_fit;
+            draw_mesh(zombie, pose, zombie_tex);
         });
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
-            draw_mesh(bullet, vyro::Mat4::translation(p.value), white_tex);
+            draw_mesh(bullet,
+                      vyro::Mat4::translation({p.value.x, 0.9f, p.value.z}), white_tex);
         });
 
         // Score in the title bar (the engine has no text rendering yet).
         if (state.score != last_title_score) {
             last_title_score = state.score;
             glfwSetWindowTitle(window.native(),
-                               std::format("VyroStrike — score {}", state.score).c_str());
+                               std::format("VyroStrike: Outbreak — score {}", state.score).c_str());
         }
 
         window.swap_buffers();
