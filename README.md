@@ -14,21 +14,23 @@ Think: the openness of Godot, the performance ceiling of Unreal, and the accessi
 
 ## Status
 
-| Phase | Status |
-|-------|--------|
-| Phase 0 — Research & Planning | ✅ Complete |
-| Phase 1 — Core Engine Foundation | ✅ Complete |
-| Phase 2 — ECS Architecture | ✅ Complete |
-| Phase 3 — Rendering Engine | ✅ Complete |
-| Phase 4 — Physics Engine | ✅ Complete |
-| Phase 5 — Audio Engine | ✅ Complete |
-| Phase 6 — Animation System | ✅ Complete |
-| Phase 7 — Scripting System | ✅ Complete |
-| Phase 8 — Editor Development | ✅ Complete |
-| Phase 9 — Networking | ✅ Complete |
-| Phase 10 — Advanced Graphics | ✅ Complete |
-| Phase 11 — Optimization | ✅ Complete |
-| Phase 12 — Production Release | ✅ Complete |
+> **🎉 v1.0.0 is complete and released** — all 12 development phases (foundation,
+> ECS, rendering, physics, audio, animation, scripting, editor, networking,
+> advanced graphics, optimization, production) shipped, tested, and packaged.
+> See the [v1.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v1.0.0).
+
+**Now in development: VyroEngine 2.0** — replacing v1's reference
+implementations with production backends, without breaking the public APIs.
+Full plan: [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
+
+| V2 Phase | Goal | Status | Tag |
+|----------|------|--------|-----|
+| V2.1 — Visual Editor | Dear ImGui editor (hierarchy, inspector, assets, stats over a live 3D viewport) | ✅ Complete | v1.1.0 |
+| V2.2 — UDP Transport | Real socket networking behind `ITransport` | 🔧 In Progress | v1.2.0 |
+| V2.3 — Lua Scripting | Lua 5.4 backend behind `ScriptEngine` | 📋 Planned | v1.3.0 |
+| V2.4 — Vulkan Backend | `VulkanDevice` RHI via MoltenVK, scheduled by the FrameGraph | 📋 Planned | v1.4.0 |
+| V2.5 — Texturing & Materials | PNG loading, GPU textures, textured PBR | 📋 Planned | v1.5.0 |
+| **v2.0.0** | All of the above stabilized | 📋 Planned | v2.0.0 |
 
 ---
 
