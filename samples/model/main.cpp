@@ -3,6 +3,7 @@
 // OpenGL backend: perspective camera, depth testing, and directional lighting.
 // Auto-centers and scales any model to fit the view. Falls back to the bundled
 // cube, then a procedural cube, if no model file is found.
+#include "vyro/assets/Image.hpp"
 #include "vyro/assets/Mesh.hpp"
 #include "vyro/assets/ObjLoader.hpp"
 #include "vyro/core/Engine.hpp"
@@ -103,24 +104,61 @@ uniform mat4 u_mvp;
 uniform mat4 u_model;
 out vec3 vNormal;
 out vec3 vColor;
+out vec2 vUV;
 void main() {
     gl_Position = u_mvp * vec4(aPos, 1.0);
     vNormal = mat3(u_model) * aNormal;
     vColor = aColor;
+    vUV = aUV;
 })";
 
     const char* fs = R"(#version 330 core
 in vec3 vNormal;
 in vec3 vColor;
+in vec2 vUV;
 out vec4 FragColor;
 uniform vec3 u_lightDir;
+uniform sampler2D u_texture;
 void main() {
     float d = max(dot(normalize(vNormal), normalize(-u_lightDir)), 0.0);
-    vec3 c = vColor * (0.35 + 0.65 * d);
-    FragColor = vec4(c, 1.0);
+    vec3 base = texture(u_texture, vUV).rgb * vColor;
+    FragColor = vec4(base * (0.35 + 0.65 * d), 1.0);
 })";
 
     const vyro::ShaderHandle shader = device.create_shader({vs, fs});
+
+    // ── Textures (V2.5): checkerboard ground + optional model texture ─
+    const vyro::Image checker = vyro::make_checkerboard(256, 32);
+    const vyro::TextureHandle checker_tex =
+        device.create_texture({checker.width, checker.height, vyro::TextureFormat::RGBA8,
+                               checker.pixels.data()});
+
+    vyro::Image model_img = vyro::make_solid(255, 255, 255); // neutral: vertex colors show
+    for (const char* tp : {"assets/textures/model.png", "../assets/textures/model.png"}) {
+        if (auto img = vyro::load_image(tp); img.has_value()) {
+            VYRO_INFO("Viewer", "loaded texture '{}' ({}x{})", tp, img->width, img->height);
+            model_img = std::move(img.value());
+            break;
+        }
+    }
+    const vyro::TextureHandle model_tex =
+        device.create_texture({model_img.width, model_img.height, vyro::TextureFormat::RGBA8,
+                               model_img.pixels.data()});
+
+    // Ground plane (y = -1.2), UVs tiled 8x for the checker pattern.
+    const vyro::f32 g = 8.0f;
+    const vyro::f32 gy = -1.2f;
+    const std::vector<vyro::Vertex3D> ground_verts = {
+        {{-g, gy, -g}, {0, 1, 0}, {0, 0}, {1, 1, 1}},
+        {{g, gy, -g}, {0, 1, 0}, {8, 0}, {1, 1, 1}},
+        {{g, gy, g}, {0, 1, 0}, {8, 8}, {1, 1, 1}},
+        {{-g, gy, g}, {0, 1, 0}, {0, 8}, {1, 1, 1}},
+    };
+    const std::vector<vyro::u32> ground_idx = {0, 1, 2, 0, 2, 3};
+    const vyro::BufferHandle ground_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex, ground_verts.size() * sizeof(vyro::Vertex3D), ground_verts.data()});
+    const vyro::BufferHandle ground_ibo = device.create_buffer(
+        {vyro::BufferType::Index, ground_idx.size() * sizeof(vyro::u32), ground_idx.data()});
 
     const vyro::f32 aspect =
         static_cast<vyro::f32>(window.framebuffer_width()) / static_cast<vyro::f32>(window.framebuffer_height());
@@ -145,14 +183,29 @@ void main() {
         device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
         device.clear(vyro::Vec4{0.06f, 0.07f, 0.10f, 1.0f});
 
-        device.set_uniform_mat4(shader, "u_mvp", mvp);
-        device.set_uniform_mat4(shader, "u_model", model);
         device.set_uniform_vec3(shader, "u_lightDir", vyro::Vec3{-0.4f, -1.0f, -0.6f});
 
+        // Ground plane (identity transform, checker texture).
+        const vyro::Mat4 identity = vyro::Mat4::identity();
+        device.set_uniform_mat4(shader, "u_mvp", camera.view_projection() * identity);
+        device.set_uniform_mat4(shader, "u_model", identity);
+        vyro::DrawCommand ground_cmd;
+        ground_cmd.shader = shader;
+        ground_cmd.vertex_buffer = ground_vbo;
+        ground_cmd.index_buffer = ground_ibo;
+        ground_cmd.texture = checker_tex;
+        ground_cmd.index_count = static_cast<vyro::u32>(ground_idx.size());
+        ground_cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+        device.draw(ground_cmd);
+
+        // Model.
+        device.set_uniform_mat4(shader, "u_mvp", mvp);
+        device.set_uniform_mat4(shader, "u_model", model);
         vyro::DrawCommand cmd;
         cmd.shader = shader;
         cmd.vertex_buffer = vbo;
         cmd.index_buffer = ibo;
+        cmd.texture = model_tex;
         cmd.index_count = static_cast<vyro::u32>(mesh.indices.size());
         cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
         cmd.topology = vyro::PrimitiveTopology::Triangles;
