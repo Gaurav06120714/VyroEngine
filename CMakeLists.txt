@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(VyroEngine
-    VERSION 0.1.0
+    VERSION 1.0.0
     DESCRIPTION "A modern cross-platform game engine built from scratch"
     LANGUAGES CXX)
 
@@ -63,5 +63,27 @@ if(VYRO_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# ---------------------------------------------------------------- packaging
+# Phase 12.3: install rules + CPack source/binary packages.
+include(GNUInstallDirs)
+install(TARGETS vyro_engine
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(DIRECTORY engine/include/vyro
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if(VYRO_BUILD_RUNTIME)
+    install(TARGETS vyro_runtime
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+install(FILES README.md DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
+set(CPACK_PACKAGE_NAME "VyroEngine")
+set(CPACK_PACKAGE_VENDOR "VyroEcosystem")
+set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${PROJECT_DESCRIPTION})
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES "/build/" "/\\\\.git/" "\\\\.DS_Store")
+include(CPack)
 
 message(STATUS "VyroEngine ${PROJECT_VERSION} configured (${CMAKE_BUILD_TYPE})")
