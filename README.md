@@ -34,6 +34,16 @@ Full plan: [docs/ROADMAP_V2.md](docs/ROADMAP_V2.md).
 
 ---
 
+## Games built on VyroEngine
+
+| Game | Description | Run |
+|------|-------------|-----|
+| **VyroStrike** | 3D arcade shooter: fly the spaceship, shoot down the red raiders. ECS + Input + collision + OBJ assets + GL rendering. | `./build/bin/VyroStrike` |
+
+Controls: **A/D** move · **Space** shoot · **R** restart · **Esc** quit
+
+---
+
 ## Documentation Index
 
 | File | Description |
