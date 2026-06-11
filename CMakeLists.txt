@@ -27,6 +27,7 @@ option(VYRO_BUILD_RUNTIME "Build the runtime executable" ON)
 option(VYRO_BUILD_SAMPLES "Build VyroEngine sample programs" ON)
 option(VYRO_ENABLE_GL     "Build the OpenGL + GLFW window backend" ON)
 option(VYRO_ENABLE_LUA    "Build the Lua scripting backend" ON)
+option(VYRO_ENABLE_VULKAN "Build the Vulkan backend (MoltenVK on macOS)" ON)
 
 # Help find_package locate Homebrew-installed dependencies (e.g. glfw3).
 if(APPLE AND EXISTS "/opt/homebrew")

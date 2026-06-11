@@ -3,7 +3,7 @@ file(GLOB_RECURSE VYRO_ENGINE_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 # Backend sources (GL window, Lua) are built in their optional targets.
-list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/(gl|lua)/")
+list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/(gl|lua|vk)/")
 
 add_library(vyro_engine STATIC ${VYRO_ENGINE_SOURCES})
 add_library(vyro::engine ALIAS vyro_engine)
@@ -35,6 +35,28 @@ if(VYRO_ENABLE_LUA)
         message(STATUS "VyroEngine: Lua scripting backend (vyro_lua) enabled — ${LUA_LIBRARY}")
     else()
         message(WARNING "VyroEngine: VYRO_ENABLE_LUA set but Lua not found; skipping vyro_lua")
+    endif()
+endif()
+
+# ── Optional Vulkan backend (vyro_vk) via MoltenVK ───────────────────
+if(VYRO_ENABLE_VULKAN)
+    find_path(VULKAN_INCLUDE_DIR vulkan/vulkan.h
+        PATHS /opt/homebrew/opt/vulkan-headers/include /usr/local/include /usr/include)
+    find_library(VULKAN_LIBRARY NAMES vulkan
+        PATHS /opt/homebrew/opt/vulkan-loader/lib /usr/local/lib /usr/lib)
+
+    if(VULKAN_INCLUDE_DIR AND VULKAN_LIBRARY)
+        add_library(vyro_vk STATIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/vk/VulkanDevice.cpp)
+        add_library(vyro::vk ALIAS vyro_vk)
+        target_include_directories(vyro_vk
+            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+            PRIVATE ${VULKAN_INCLUDE_DIR})
+        target_link_libraries(vyro_vk PUBLIC vyro::engine PRIVATE ${VULKAN_LIBRARY})
+        set(VYRO_VULKAN_AVAILABLE TRUE PARENT_SCOPE)
+        message(STATUS "VyroEngine: Vulkan backend (vyro_vk) enabled — ${VULKAN_LIBRARY}")
+    else()
+        message(WARNING "VyroEngine: VYRO_ENABLE_VULKAN set but Vulkan not found; skipping vyro_vk")
     endif()
 endif()
 
