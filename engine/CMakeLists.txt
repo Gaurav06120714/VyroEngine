@@ -11,7 +11,8 @@ add_library(vyro::engine ALIAS vyro_engine)
 target_include_directories(vyro_engine
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(vyro_engine SYSTEM
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/stb)
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/stb
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
 
 target_link_libraries(vyro_engine PRIVATE vyro_warnings)
 
