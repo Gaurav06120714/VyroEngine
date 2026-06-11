@@ -10,6 +10,7 @@
 #include <expected>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace vyro {
 
@@ -18,10 +19,19 @@ enum class ObjError {
     Empty,
 };
 
-// Load an OBJ file from disk.
+// Material name -> diffuse color (Kd), parsed from a .mtl library.
+using MaterialMap = std::unordered_map<std::string, Vec3>;
+
+// Parse .mtl text into material diffuse colors.
+[[nodiscard]] MaterialMap parse_mtl(std::string_view text);
+
+// Load an OBJ file from disk. If the file references an .mtl library
+// (mtllib), it is loaded from the same directory and material diffuse colors
+// are baked into vertex colors on each usemtl group.
 [[nodiscard]] std::expected<MeshData, ObjError> load_obj(std::string_view path);
 
 // Parse OBJ text directly (used by the file loader and tests).
-[[nodiscard]] std::expected<MeshData, ObjError> parse_obj(std::string_view text);
+[[nodiscard]] std::expected<MeshData, ObjError> parse_obj(std::string_view text,
+                                                          const MaterialMap& materials = {});
 
 } // namespace vyro

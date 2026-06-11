@@ -50,14 +50,10 @@ Vec3 face_normal(Vec3 a, Vec3 b, Vec3 c)
 
 } // namespace
 
-std::expected<MeshData, ObjError> parse_obj(std::string_view text)
+MaterialMap parse_mtl(std::string_view text)
 {
-    std::vector<Vec3> positions;
-    std::vector<Vec2> texcoords;
-    std::vector<Vec3> normals;
-
-    MeshData mesh;
-    std::unordered_map<std::string, u32> unique; // "v/vt/vn" -> mesh index
+    MaterialMap materials;
+    std::string current;
 
     std::istringstream stream{std::string(text)};
     std::string line;
@@ -65,7 +61,40 @@ std::expected<MeshData, ObjError> parse_obj(std::string_view text)
         std::istringstream ls(line);
         std::string tag;
         ls >> tag;
-        if (tag == "v") {
+        if (tag == "newmtl") {
+            ls >> current;
+            materials[current] = Vec3{1.0f, 1.0f, 1.0f};
+        } else if (tag == "Kd" && !current.empty()) {
+            Vec3 kd;
+            ls >> kd.x >> kd.y >> kd.z;
+            materials[current] = kd;
+        }
+    }
+    return materials;
+}
+
+std::expected<MeshData, ObjError> parse_obj(std::string_view text, const MaterialMap& materials)
+{
+    std::vector<Vec3> positions;
+    std::vector<Vec2> texcoords;
+    std::vector<Vec3> normals;
+    Vec3 current_color{1.0f, 1.0f, 1.0f};
+
+    MeshData mesh;
+    std::unordered_map<std::string, u32> unique; // "v/vt/vn/material" -> mesh index
+
+    std::istringstream stream{std::string(text)};
+    std::string line;
+    while (std::getline(stream, line)) {
+        std::istringstream ls(line);
+        std::string tag;
+        ls >> tag;
+        if (tag == "usemtl") {
+            std::string name;
+            ls >> name;
+            const auto it = materials.find(name);
+            current_color = (it != materials.end()) ? it->second : Vec3{1.0f, 1.0f, 1.0f};
+        } else if (tag == "v") {
             Vec3 p;
             ls >> p.x >> p.y >> p.z;
             positions.push_back(p);
@@ -101,13 +130,16 @@ std::expected<MeshData, ObjError> parse_obj(std::string_view text)
 
                 for (const FaceRef& r : tri) {
                     std::string key = std::to_string(r.v) + "/" + std::to_string(r.vt) + "/"
-                                      + std::to_string(r.vn);
+                                      + std::to_string(r.vn) + "/" + std::to_string(current_color.x)
+                                      + "," + std::to_string(current_color.y) + ","
+                                      + std::to_string(current_color.z);
                     const auto it = unique.find(key);
                     if (it != unique.end()) {
                         mesh.indices.push_back(it->second);
                         continue;
                     }
                     Vertex3D vert;
+                    vert.color = current_color;
                     if (r.v >= 0 && static_cast<usize>(r.v) < positions.size()) {
                         vert.position = positions[static_cast<usize>(r.v)];
                     }
@@ -140,7 +172,45 @@ std::expected<MeshData, ObjError> load_obj(std::string_view path)
     }
     std::stringstream buffer;
     buffer << file.rdbuf();
-    return parse_obj(buffer.str());
+    const std::string text = buffer.str();
+
+    // Load the referenced material library (if any) from the OBJ's directory.
+    // Also try "<obj-stem>.mtl" since archives are often renamed as a pair.
+    MaterialMap materials;
+    const std::string dir(path.substr(0, path.find_last_of('/') + 1));
+
+    std::istringstream scan(text);
+    std::string line;
+    while (std::getline(scan, line)) {
+        std::istringstream ls(line);
+        std::string tag;
+        ls >> tag;
+        if (tag == "mtllib") {
+            std::string name;
+            ls >> name;
+            std::ifstream mtl(dir + name);
+            if (mtl.is_open()) {
+                std::stringstream mb;
+                mb << mtl.rdbuf();
+                materials = parse_mtl(mb.str());
+            }
+            break;
+        }
+    }
+    if (materials.empty()) {
+        std::string stem(path);
+        const usize dot = stem.find_last_of('.');
+        if (dot != std::string::npos) {
+            std::ifstream mtl(stem.substr(0, dot) + ".mtl");
+            if (mtl.is_open()) {
+                std::stringstream mb;
+                mb << mtl.rdbuf();
+                materials = parse_mtl(mb.str());
+            }
+        }
+    }
+
+    return parse_obj(text, materials);
 }
 
 } // namespace vyro

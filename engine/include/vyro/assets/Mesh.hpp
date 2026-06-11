@@ -15,6 +15,7 @@ struct Vertex3D {
     Vec3 position{};
     Vec3 normal{};
     Vec2 uv{};
+    Vec3 color{1.0f, 1.0f, 1.0f}; // material diffuse, baked at load time
 };
 
 struct MeshData {
