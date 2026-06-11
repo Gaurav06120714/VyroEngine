@@ -30,6 +30,27 @@ if(VYRO_ENABLE_GL)
         target_link_libraries(vyro_gl PUBLIC vyro::engine glfw ${OPENGL_FRAMEWORK})
         set(VYRO_GL_AVAILABLE TRUE PARENT_SCOPE)
         message(STATUS "VyroEngine: OpenGL backend (vyro_gl) enabled")
+
+        # ── Dear ImGui (editor UI), fetched at configure time ────────
+        include(FetchContent)
+        FetchContent_Declare(imgui
+            GIT_REPOSITORY https://github.com/ocornut/imgui.git
+            GIT_TAG v1.91.5
+            GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(imgui)
+
+        add_library(vyro_imgui STATIC
+            ${imgui_SOURCE_DIR}/imgui.cpp
+            ${imgui_SOURCE_DIR}/imgui_draw.cpp
+            ${imgui_SOURCE_DIR}/imgui_tables.cpp
+            ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+        target_include_directories(vyro_imgui PUBLIC
+            ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+        target_link_libraries(vyro_imgui PUBLIC glfw ${OPENGL_FRAMEWORK})
+        set(VYRO_IMGUI_AVAILABLE TRUE PARENT_SCOPE)
+        message(STATUS "VyroEngine: ImGui editor UI enabled")
     else()
         message(WARNING "VyroEngine: VYRO_ENABLE_GL set but glfw3/OpenGL not found; skipping vyro_gl")
     endif()
