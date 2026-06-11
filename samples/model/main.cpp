@@ -98,22 +98,25 @@ int main(int argc, char** argv)
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
 layout(location = 2) in vec2 aUV;
+layout(location = 3) in vec3 aColor;
 uniform mat4 u_mvp;
 uniform mat4 u_model;
 out vec3 vNormal;
+out vec3 vColor;
 void main() {
     gl_Position = u_mvp * vec4(aPos, 1.0);
     vNormal = mat3(u_model) * aNormal;
+    vColor = aColor;
 })";
 
     const char* fs = R"(#version 330 core
 in vec3 vNormal;
+in vec3 vColor;
 out vec4 FragColor;
 uniform vec3 u_lightDir;
-uniform vec3 u_color;
 void main() {
     float d = max(dot(normalize(vNormal), normalize(-u_lightDir)), 0.0);
-    vec3 c = u_color * (0.35 + 0.65 * d);
+    vec3 c = vColor * (0.35 + 0.65 * d);
     FragColor = vec4(c, 1.0);
 })";
 
@@ -145,7 +148,6 @@ void main() {
         device.set_uniform_mat4(shader, "u_mvp", mvp);
         device.set_uniform_mat4(shader, "u_model", model);
         device.set_uniform_vec3(shader, "u_lightDir", vyro::Vec3{-0.4f, -1.0f, -0.6f});
-        device.set_uniform_vec3(shader, "u_color", vyro::Vec3{0.85f, 0.55f, 0.25f});
 
         vyro::DrawCommand cmd;
         cmd.shader = shader;

@@ -47,6 +47,8 @@ void set_vertex_attributes(VertexFormat format)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 3));
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 6));
+        glEnableVertexAttribArray(3); // material color
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(sizeof(float) * 8));
     } else {
         constexpr GLsizei stride = static_cast<GLsizei>(sizeof(QuadVertex));
         glEnableVertexAttribArray(0);

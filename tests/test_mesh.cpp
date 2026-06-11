@@ -46,6 +46,29 @@ int main()
                     "generated normal is non-zero");
     }
 
+    // parse_mtl extracts diffuse colors and usemtl bakes them into vertices
+    {
+        const char* mtl =
+            "newmtl Red\n"
+            "Kd 1 0 0\n"
+            "newmtl White\n"
+            "Kd 1 1 1\n";
+        const vyro::MaterialMap mats = vyro::parse_mtl(mtl);
+        suite.check(mats.size() == 2, "two materials parsed");
+        suite.check(mats.at("Red") == (vyro::Vec3{1, 0, 0}), "Red Kd parsed");
+
+        const char* obj =
+            "v 0 0 0\n"
+            "v 1 0 0\n"
+            "v 0 1 0\n"
+            "usemtl Red\n"
+            "f 1 2 3\n";
+        const auto result = vyro::parse_obj(obj, mats);
+        suite.check(result.has_value(), "OBJ with usemtl parses");
+        suite.check(result->vertices[0].color == (vyro::Vec3{1, 0, 0}),
+                    "material color baked into vertex");
+    }
+
     // Missing file reports an error
     {
         const auto result = vyro::load_obj("/no/such/model.obj");
