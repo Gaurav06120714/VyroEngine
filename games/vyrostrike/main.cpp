@@ -12,6 +12,7 @@
 #include "vyro/assets/Mesh.hpp"
 #include "vyro/assets/GlbLoader.hpp"
 #include "vyro/assets/ObjLoader.hpp"
+#include "vyro/assets/SkinnedModel.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/ecs/Registry.hpp"
@@ -182,24 +183,68 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
 
     // ── Assets: real people and guns (GLB with embedded textures) ────
     vyro::GlbModel soldier_model = load_character("assets/models/characters/soldier_shooting.glb");
-    vyro::GlbModel zombie_model = load_character("assets/models/characters/zombie_animated.glb");
+
+    // The zombie loads RIGGED: clips sampled per frame, vertices CPU-skinned.
+    vyro::SkinnedModel zombie_model;
+    for (const char* prefix : {"", "../"}) {
+        if (auto r = vyro::load_glb_skinned(std::string(prefix)
+                                            + "assets/models/characters/zombie_animated.glb");
+            r.has_value()) {
+            zombie_model = std::move(r.value());
+            break;
+        }
+    }
+    for (const auto& clip : zombie_model.clips) {
+        VYRO_INFO("Game", "zombie clip: '{}' ({}s)", clip.name, clip.duration);
+    }
+    int walk_clip = 0;
+    for (const char* want : {"Walk", "Run"}) {
+        bool found = false;
+        for (vyro::usize c = 0; c < zombie_model.clips.size(); ++c) {
+            if (zombie_model.clips[c].name.find(want) != std::string::npos) {
+                walk_clip = static_cast<int>(c);
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            break;
+        }
+    }
+    if (!zombie_model.clips.empty()) {
+        VYRO_INFO("Game", "horde animation: '{}'", zombie_model.clips[static_cast<vyro::usize>(walk_clip)].name);
+    }
 
     const GpuMesh soldier = upload(device, soldier_model.mesh);
     const vyro::Mat4 soldier_fit = fit_transform(soldier_model.mesh, 1.8f);
     const GpuMesh zombie = upload(device, zombie_model.mesh);
-    const vyro::Mat4 zombie_fit = fit_transform(zombie_model.mesh, 1.9f);
+    std::vector<vyro::Mat4> zombie_pose;
+    std::vector<vyro::Vertex3D> zombie_skinned;
 
-    auto upload_model_tex = [&](const vyro::GlbModel& m) {
-        if (m.has_texture) {
-            return device.create_texture({m.texture.width, m.texture.height,
-                                          vyro::TextureFormat::RGBA8, m.texture.pixels.data()});
+    // Fit using a SKINNED frame: skinning bakes the rig's scale, so the raw
+    // bind-pose extents are the wrong basis for normalization.
+    vyro::Mat4 zombie_fit = vyro::Mat4::identity();
+    if (!zombie_model.clips.empty()) {
+        zombie_model.pose(0, 0.0f, zombie_pose);
+        zombie_model.skin(zombie_pose, zombie_skinned);
+        vyro::MeshData skinned_frame;
+        skinned_frame.vertices = zombie_skinned;
+        zombie_fit = fit_transform(skinned_frame, 1.9f);
+    } else {
+        zombie_fit = fit_transform(zombie_model.mesh, 1.9f);
+    }
+
+    auto upload_tex = [&](const vyro::Image& img, bool has) {
+        if (has) {
+            return device.create_texture(
+                {img.width, img.height, vyro::TextureFormat::RGBA8, img.pixels.data()});
         }
         const vyro::Image white_px = vyro::make_solid(255, 255, 255);
         return device.create_texture(
             {white_px.width, white_px.height, vyro::TextureFormat::RGBA8, white_px.pixels.data()});
     };
-    const auto soldier_tex = upload_model_tex(soldier_model);
-    const auto zombie_tex = upload_model_tex(zombie_model);
+    const auto soldier_tex = upload_tex(soldier_model.texture, soldier_model.has_texture);
+    const auto zombie_tex = upload_tex(zombie_model.texture, zombie_model.has_texture);
 
     const GpuMesh bullet = upload(device, tinted_cube(0.22f, {1.0f, 0.85f, 0.25f}));
 
@@ -369,7 +414,15 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
                                         * soldier_fit;
         draw_mesh(soldier, soldier_pose, soldier_tex);
 
-        // Zombies shamble toward the player, facing +z.
+        // Animate the horde: sample the walk clip, skin, stream to the GPU.
+        if (!zombie_model.clips.empty()) {
+            const float anim_t =
+                std::chrono::duration<float>(now.time_since_epoch()).count();
+            zombie_model.pose(static_cast<vyro::usize>(walk_clip), anim_t, zombie_pose);
+            zombie_model.skin(zombie_pose, zombie_skinned);
+            device.update_buffer(zombie.vbo, zombie_skinned.data(),
+                                 zombie_skinned.size() * sizeof(vyro::Vertex3D));
+        }
         world.view<Position, EnemyTag>().for_each([&](Position& p, EnemyTag&) {
             const vyro::Mat4 pose = vyro::Mat4::translation(p.value) * zombie_fit;
             draw_mesh(zombie, pose, zombie_tex);
