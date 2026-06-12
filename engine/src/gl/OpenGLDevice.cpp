@@ -222,6 +222,15 @@ void OpenGLDevice::draw(const DrawCommand& command)
 
 void OpenGLDevice::end_frame() {}
 
+void OpenGLDevice::set_depth_test(bool enabled)
+{
+    if (enabled) {
+        glEnable(GL_DEPTH_TEST);
+    } else {
+        glDisable(GL_DEPTH_TEST);
+    }
+}
+
 void OpenGLDevice::set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value)
 {
     const auto it = m_programs.find(shader.id);

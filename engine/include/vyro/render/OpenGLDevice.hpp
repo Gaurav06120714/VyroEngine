@@ -37,6 +37,9 @@ public:
     void set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value);
     void set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 value);
 
+    // Toggle depth testing (HUD/overlay passes draw with it off).
+    void set_depth_test(bool enabled);
+
 private:
     struct GLBuffer {
         u32 id = 0;
