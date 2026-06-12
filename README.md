@@ -24,8 +24,9 @@ networking, Lua scripting, a real Vulkan backend (MoltenVK), texturing, and a
 GLB/glTF model loader. See the
 [v2.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v2.0.0).
 
-**Now in development: VyroEngine 3.0** — the game-maker era.
-Full plan: [docs/ROADMAP_V3.md](docs/ROADMAP_V3.md).
+**🎉 VyroEngine 3.0 is complete and released** — the game-maker era:
+skeletal animation, animated gameplay, real audio output, on-screen text/HUD,
+and scene authoring. Full plan: [docs/ROADMAP_V3.md](docs/ROADMAP_V3.md).
 
 | V3 Phase | Goal | Status | Tag |
 |----------|------|--------|-----|
@@ -33,8 +34,8 @@ Full plan: [docs/ROADMAP_V3.md](docs/ROADMAP_V3.md).
 | V3.2 — Animated Gameplay | Death animations, facing, waves & health in Outbreak | ✅ Complete | v2.2.0 |
 | V3.3 — Real Audio Output | miniaudio device + synthesized SFX: the game makes sound | ✅ Complete | v2.3.0 |
 | V3.4 — Text & HUD | Built-in bitmap font: score, hearts, game-over overlay in the viewport | ✅ Complete | v2.4.0 |
-| V3.5 — Scene Authoring | Scene save/load + editor create/delete/save workflow | 🔧 Next | v2.5.0 |
-| **v3.0.0** | All of the above stabilized | 📋 Planned | v3.0.0 |
+| V3.5 — Scene Authoring | Scene save/load + editor create/delete/save workflow | ✅ Complete | v2.5.0 |
+| **v3.0.0** | All of the above stabilized | ✅ Released | v3.0.0 |
 
 ---
 
