@@ -31,8 +31,8 @@ Full plan: [docs/ROADMAP_V3.md](docs/ROADMAP_V3.md).
 |----------|------|--------|-----|
 | V3.1 — Skeletal Animation | GLB skins + clips, keyframe sampling, CPU skinning — zombies walk | ✅ Complete | v2.1.0 |
 | V3.2 — Animated Gameplay | Death animations, facing, waves & health in Outbreak | ✅ Complete | v2.2.0 |
-| V3.3 — Real Audio Output | miniaudio device behind the AudioEngine: gunshots, groans, music | 🔧 Next | v2.3.0 |
-| V3.4 — Text & HUD | On-screen font rendering: score, health, menus | 📋 Planned | v2.4.0 |
+| V3.3 — Real Audio Output | miniaudio device + synthesized SFX: the game makes sound | ✅ Complete | v2.3.0 |
+| V3.4 — Text & HUD | On-screen font rendering: score, health, menus | 🔧 Next | v2.4.0 |
 | V3.5 — Scene Authoring | Scene save/load + editor create/delete/save workflow | 📋 Planned | v2.5.0 |
 | **v3.0.0** | All of the above stabilized | 📋 Planned | v3.0.0 |
 
