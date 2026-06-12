@@ -3,7 +3,7 @@ file(GLOB_RECURSE VYRO_ENGINE_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 
 # Backend sources (GL window, Lua) are built in their optional targets.
-list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/(gl|lua|vk)/")
+list(FILTER VYRO_ENGINE_SOURCES EXCLUDE REGEX "/src/(gl|lua|vk|ma)/")
 
 add_library(vyro_engine STATIC ${VYRO_ENGINE_SOURCES})
 add_library(vyro::engine ALIAS vyro_engine)
@@ -39,6 +39,23 @@ if(VYRO_ENABLE_LUA)
     else()
         message(WARNING "VyroEngine: VYRO_ENABLE_LUA set but Lua not found; skipping vyro_lua")
     endif()
+endif()
+
+# ── Optional real audio output (vyro_audio) via miniaudio ────────────
+if(VYRO_ENABLE_AUDIO)
+    add_library(vyro_audio STATIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ma/AudioDevice.cpp)
+    add_library(vyro::audio ALIAS vyro_audio)
+    target_include_directories(vyro_audio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(vyro_audio SYSTEM
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio)
+    target_link_libraries(vyro_audio PUBLIC vyro::engine)
+    if(APPLE)
+        target_link_libraries(vyro_audio PRIVATE
+            "-framework CoreFoundation" "-framework CoreAudio" "-framework AudioToolbox")
+    endif()
+    set(VYRO_AUDIO_AVAILABLE TRUE PARENT_SCOPE)
+    message(STATUS "VyroEngine: audio output (vyro_audio) enabled")
 endif()
 
 # ── Optional Vulkan backend (vyro_vk) via MoltenVK ───────────────────
