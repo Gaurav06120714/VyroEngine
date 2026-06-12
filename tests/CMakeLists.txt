@@ -8,7 +8,8 @@ file(GLOB VYRO_TEST_SOURCES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 list(REMOVE_ITEM VYRO_TEST_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/test_lua.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_vulkan.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_vulkan.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_audio_device.cpp)
 
 foreach(test_src ${VYRO_TEST_SOURCES})
     get_filename_component(test_name ${test_src} NAME_WE)
@@ -30,4 +31,11 @@ if(VYRO_VULKAN_AVAILABLE)
     target_include_directories(test_vulkan PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(test_vulkan PRIVATE vyro::vk vyro_warnings)
     add_test(NAME test_vulkan COMMAND test_vulkan)
+endif()
+
+if(VYRO_AUDIO_AVAILABLE)
+    add_executable(test_audio_device test_audio_device.cpp)
+    target_include_directories(test_audio_device PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(test_audio_device PRIVATE vyro::audio vyro_warnings)
+    add_test(NAME test_audio_device COMMAND test_audio_device)
 endif()
