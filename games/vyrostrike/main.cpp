@@ -24,6 +24,7 @@
 #include "vyro/platform/Window.hpp"
 #include "vyro/render/Camera.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
+#include "vyro/render/TextGeometry.hpp"
 
 #include <GLFW/glfw3.h>
 
@@ -203,6 +204,23 @@ void main(){ float d=max(dot(normalize(vNormal),normalize(-u_lightDir)),0.0);
 vec3 base=texture(u_texture,vUV).rgb*vColor;
 FragColor=vec4(base*(0.35+0.65*d),1.0); })";
     const auto shader = device.create_shader({vs, fs});
+
+    // ── HUD: unlit screen-space text pipeline ────────────────────────
+    const char* hud_vs = R"(#version 330 core
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aUV;  layout(location=3) in vec3 aColor;
+out vec3 vColor;
+void main(){ gl_Position=vec4(aPos,1.0); vColor=aColor; })";
+    const char* hud_fs = R"(#version 330 core
+in vec3 vColor; out vec4 FragColor;
+void main(){ FragColor=vec4(vColor,1.0); })";
+    const auto hud_shader = device.create_shader({hud_vs, hud_fs});
+    constexpr vyro::usize kHudMaxVerts = 40000;
+    const auto hud_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex, kHudMaxVerts * sizeof(vyro::Vertex3D), nullptr});
+    std::vector<vyro::Vertex3D> hud_verts;
+    const vyro::f32 hud_aspect = static_cast<vyro::f32>(window.framebuffer_width())
+                                 / static_cast<vyro::f32>(window.framebuffer_height());
 
     // ── Assets: real people and guns (GLB with embedded textures) ────
     vyro::GlbModel soldier_model = load_character("assets/models/characters/soldier_shooting.glb");
@@ -514,20 +532,42 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
                       vyro::Mat4::translation({p.value.x, 0.9f, p.value.z}), white_tex);
         });
 
-        // HUD in the title bar (on-screen text arrives in V3.4).
-        const int hud_key = state.score * 100 + state.hp * 10 + state.wave;
-        if (hud_key != last_title_score) {
-            last_title_score = hud_key;
-            std::string hearts;
-            for (int i = 0; i < std::max(state.hp, 0); ++i) {
-                hearts += "\u2764";
-            }
-            glfwSetWindowTitle(window.native(),
-                               std::format("VyroStrike: Outbreak — wave {}  score {}  {}",
-                                           state.wave, state.score,
-                                           state.game_over ? "DEAD (R to restart)" : hearts)
-                                   .c_str());
+        // ── On-screen HUD (V3.4): score, wave, hearts, game over ─────
+        hud_verts.clear();
+        vyro::text::build(std::format("WAVE {}", state.wave), -0.97f, 0.95f, 0.07f,
+                          hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
+        vyro::text::build(std::format("SCORE {}", state.score), -0.97f, 0.85f, 0.07f,
+                          hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
+        std::string hearts;
+        for (int i = 0; i < std::max(state.hp, 0); ++i) {
+            hearts += '\x03';
         }
+        vyro::text::build(hearts, 0.7f, 0.95f, 0.09f, hud_aspect, {0.95f, 0.2f, 0.25f},
+                          hud_verts);
+        if (state.game_over) {
+            const char* msg = "GAME OVER";
+            const char* sub = "PRESS R TO RESTART";
+            const vyro::f32 w1 = vyro::text::measure(msg, 0.22f, hud_aspect);
+            const vyro::f32 w2 = vyro::text::measure(sub, 0.07f, hud_aspect);
+            vyro::text::build(msg, -w1 * 0.5f, 0.2f, 0.22f, hud_aspect,
+                              {0.95f, 0.15f, 0.15f}, hud_verts);
+            vyro::text::build(sub, -w2 * 0.5f, -0.05f, 0.07f, hud_aspect,
+                              {0.9f, 0.9f, 0.9f}, hud_verts);
+        }
+        if (hud_verts.size() > kHudMaxVerts) {
+            hud_verts.resize(kHudMaxVerts);
+        }
+        device.update_buffer(hud_vbo, hud_verts.data(),
+                             hud_verts.size() * sizeof(vyro::Vertex3D));
+        device.set_depth_test(false);
+        vyro::DrawCommand hud_cmd;
+        hud_cmd.shader = hud_shader;
+        hud_cmd.vertex_buffer = hud_vbo;
+        hud_cmd.vertex_count = static_cast<vyro::u32>(hud_verts.size());
+        hud_cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+        device.draw(hud_cmd);
+        device.set_depth_test(true);
+        (void)last_title_score;
 
         window.swap_buffers();
     }
