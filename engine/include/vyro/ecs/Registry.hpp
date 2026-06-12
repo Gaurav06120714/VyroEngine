@@ -59,6 +59,7 @@ public:
 
     [[nodiscard]] bool is_alive(Entity entity) const { return m_entities.is_alive(entity); }
     [[nodiscard]] usize entity_count() const { return m_entities.alive_count(); }
+    [[nodiscard]] std::vector<Entity> alive_entities() const { return m_entities.alive_entities(); }
 
     // ── Components ───────────────────────────────────────────────────
     template<typename T, typename... Args>

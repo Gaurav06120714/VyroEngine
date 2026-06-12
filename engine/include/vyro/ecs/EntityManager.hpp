@@ -29,6 +29,9 @@ public:
     // Highest index ever allocated (sizing hint for component storage).
     [[nodiscard]] usize capacity() const { return m_generations.size(); }
 
+    // Snapshot of all currently live entities (serialization, tooling).
+    [[nodiscard]] std::vector<Entity> alive_entities() const;
+
     void clear();
 
 private:

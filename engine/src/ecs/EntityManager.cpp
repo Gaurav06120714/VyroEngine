@@ -38,6 +38,18 @@ bool EntityManager::is_alive(Entity entity) const
         && m_generations[entity.index] == entity.generation;
 }
 
+std::vector<Entity> EntityManager::alive_entities() const
+{
+    std::vector<Entity> out;
+    out.reserve(m_alive_count);
+    for (u32 i = 0; i < m_generations.size(); ++i) {
+        if (m_alive[i]) {
+            out.push_back(Entity{i, m_generations[i]});
+        }
+    }
+    return out;
+}
+
 void EntityManager::clear()
 {
     m_generations.clear();
