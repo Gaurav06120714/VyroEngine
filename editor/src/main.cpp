@@ -15,6 +15,7 @@
 #include "vyro/editor/AssetBrowser.hpp"
 #include "vyro/editor/EditorContext.hpp"
 #include "vyro/editor/Gizmo.hpp"
+#include "vyro/scene/SceneSerializer.hpp"
 
 #include "vyro/math/Mat4.hpp"
 #include "vyro/platform/Window.hpp"
@@ -28,6 +29,7 @@
 #include <GLFW/glfw3.h>
 
 #include <chrono>
+#include <filesystem>
 #include <format>
 #include <string>
 #include <vector>
@@ -101,6 +103,34 @@ int main()
         entities.push_back(e);
     }
     editor.select(entities[0]);
+
+    // ── Scene authoring (V3.5): schema + save/load path ──────────────
+    vyro::SceneSchema schema;
+    schema.register_component<NameComponent>(
+        "Name",
+        [](const NameComponent& n) { return vyro::FieldMap{{"name", n.name}}; },
+        [](const vyro::FieldMap& f) { return NameComponent{f.at("name")}; });
+    schema.register_component<vyro::TransformComponent>(
+        "Transform",
+        [](const vyro::TransformComponent& t) {
+            auto v = [](vyro::f32 x) { return std::to_string(x); };
+            return vyro::FieldMap{{"px", v(t.position.x)}, {"py", v(t.position.y)},
+                                  {"pz", v(t.position.z)}, {"rx", v(t.rotation.x)},
+                                  {"ry", v(t.rotation.y)}, {"rz", v(t.rotation.z)},
+                                  {"sx", v(t.scale.x)},    {"sy", v(t.scale.y)},
+                                  {"sz", v(t.scale.z)}};
+        },
+        [](const vyro::FieldMap& f) {
+            auto g = [&](const char* k) { return std::stof(f.at(k)); };
+            vyro::TransformComponent t;
+            t.position = {g("px"), g("py"), g("pz")};
+            t.rotation = {g("rx"), g("ry"), g("rz")};
+            t.scale = {g("sx"), g("sy"), g("sz")};
+            return t;
+        });
+    const char* scene_path = "assets/scenes/editor.scene";
+    std::filesystem::create_directories("assets/scenes");
+    int next_entity_number = static_cast<int>(entities.size()) + 1;
 
     // ── Assets panel data ────────────────────────────────────────────
     vyro::AssetBrowser assets;
@@ -192,12 +222,41 @@ FragColor=vec4(vColor*(0.35+0.65*d),1.0); })";
         ImGui::SetNextWindowPos({10, 10}, ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize({260, 280}, ImGuiCond_FirstUseEver);
         ImGui::Begin("Hierarchy");
-        for (const auto e : entities) {
+        if (ImGui::Button("+ Entity")) {
+            const auto e = registry.create_entity();
+            registry.add_component<NameComponent>(
+                e, NameComponent{std::format("Entity {}", next_entity_number++)});
+            registry.add_component<vyro::TransformComponent>(e, vyro::TransformComponent{});
+            editor.select(e);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("- Delete") && editor.has_selection()) {
+            registry.destroy_entity(editor.selected());
+            editor.clear_selection();
+        }
+        if (ImGui::Button("Save Scene")) {
+            vyro::scene_io::save_file(scene_path, registry, schema);
+            VYRO_INFO("Editor", "scene saved to {}", scene_path);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load Scene")) {
+            for (const auto e : registry.alive_entities()) {
+                registry.destroy_entity(e);
+            }
+            editor.clear_selection();
+            const auto loaded = vyro::scene_io::load_file(scene_path, registry, schema);
+            VYRO_INFO("Editor", "scene load: {} entities",
+                      loaded.has_value() ? static_cast<int>(loaded.value()) : -1);
+        }
+        ImGui::Separator();
+        for (const auto e : registry.alive_entities()) {
             const auto* name = registry.get_component<NameComponent>(e);
             const bool selected = editor.has_selection() && editor.selected() == e;
+            ImGui::PushID(static_cast<int>(e.index));
             if (ImGui::Selectable(name != nullptr ? name->name.c_str() : "Entity", selected)) {
                 editor.select(e);
             }
+            ImGui::PopID();
         }
         ImGui::End();
 
