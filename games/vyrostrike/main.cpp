@@ -13,6 +13,8 @@
 #include "vyro/assets/GlbLoader.hpp"
 #include "vyro/assets/ObjLoader.hpp"
 #include "vyro/assets/SkinnedModel.hpp"
+#include "vyro/audio/AudioDevice.hpp"
+#include "vyro/audio/SoundSynth.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/ecs/Registry.hpp"
@@ -177,6 +179,14 @@ int main()
     input.bind_action("Fire", vyro::KeyCode::Space);
     input.bind_action("Restart", vyro::KeyCode::R);
     input.bind_action("Quit", vyro::KeyCode::Escape);
+
+    // ── Real audio: synthesized SFX through the output device ────────
+    vyro::AudioDevice audio;
+    const bool sound_on = audio.init();
+    audio.set_master_gain(0.6f);
+    const auto sfx_shot = vyro::synth::gunshot();
+    const auto sfx_groan = vyro::synth::groan();
+    const auto sfx_hit = vyro::synth::hit();
 
     // ── Shader (same textured/lit pipeline as the viewer) ────────────
     const char* vs = R"(#version 330 core
@@ -353,6 +363,9 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
             state.fire_timer -= dt;
             if (input.is_action_down("Fire") && state.fire_timer <= 0.0f) {
                 state.fire_timer = kFireCooldown;
+                if (sound_on) {
+                    audio.play(sfx_shot, 0.8f);
+                }
                 const auto b = world.create_entity();
                 world.add_component<Position>(b, Position{{state.player_x, 0.0f, kPlayerZ - 0.8f}});
                 world.add_component<Velocity>(b, Velocity{{0.0f, 0.0f, -kBulletSpeed}});
@@ -400,6 +413,9 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
                     || ep.value.z > kPlayerZ + 1.5f) {
                     dead.push_back(e);
                     --state.hp;
+                    if (sound_on) {
+                        audio.play(sfx_hit, 1.0f);
+                    }
                     if (state.hp <= 0) {
                         state.game_over = true;
                     }
@@ -419,6 +435,9 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
             });
             for (const auto e : shot) {
                 if (!world.has_component<DyingTag>(e)) {
+                    if (sound_on) {
+                        audio.play(sfx_groan, 0.9f);
+                    }
                     world.add_component<DyingTag>(e, DyingTag{});
                     if (auto* v = world.get_component<Velocity>(e)) {
                         v->value = {};
