@@ -27,6 +27,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
+#include <cmath>
 #include <format>
 #include <random>
 #include <string>
@@ -43,6 +45,10 @@ struct Velocity {
 };
 struct BulletTag {};
 struct EnemyTag {};
+// A zombie that has been shot: plays out its death (fall + sink) then despawns.
+struct DyingTag {
+    vyro::f32 t = 0.0f;
+};
 
 // ── Tuning ───────────────────────────────────────────────────────────
 constexpr vyro::f32 kArenaHalfWidth = 5.0f;
@@ -62,15 +68,22 @@ struct GameState {
     vyro::f32 spawn_interval = 1.4f;
     vyro::f32 enemy_speed = 2.2f;
     int score = 0;
+    int hp = 3;
+    int wave = 1;
     bool game_over = false;
 };
 
+constexpr vyro::f32 kDeathDuration = 1.1f;
+
 // Feed the window's physical keys into the engine's action-mapped Input.
+// VYRO_AUTOFIRE=1 holds the fire action down — a headless smoke-test hook.
 void pump_input(vyro::Input& input, GLFWwindow* window)
 {
+    static const bool autofire = std::getenv("VYRO_AUTOFIRE") != nullptr;
     input.new_frame();
     auto feed = [&](int glfw_key, vyro::KeyCode code) {
-        input.on_key(code, glfwGetKey(window, glfw_key) == GLFW_PRESS);
+        const bool forced = autofire && code == vyro::KeyCode::Space;
+        input.on_key(code, forced || glfwGetKey(window, glfw_key) == GLFW_PRESS);
     };
     feed(GLFW_KEY_A, vyro::KeyCode::A);
     feed(GLFW_KEY_D, vyro::KeyCode::D);
@@ -347,16 +360,25 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
             }
 
             // ── Enemy spawning (difficulty ramps with score) ─────────
+            state.wave = 1 + state.score / 10;
             state.spawn_timer -= dt;
             if (state.spawn_timer <= 0.0f) {
                 state.spawn_timer = state.spawn_interval;
-                state.spawn_interval = std::max(0.55f, 1.4f - static_cast<vyro::f32>(state.score) * 0.02f);
-                state.enemy_speed = 2.2f + static_cast<vyro::f32>(state.score) * 0.06f;
+                state.spawn_interval =
+                    std::max(0.5f, 1.5f - static_cast<vyro::f32>(state.wave) * 0.15f);
+                state.enemy_speed = 2.0f + static_cast<vyro::f32>(state.wave) * 0.35f;
                 const auto e = world.create_entity();
                 world.add_component<Position>(e, Position{{spawn_x(rng), 0.0f, kSpawnZ}});
                 world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, state.enemy_speed}});
                 world.add_component<EnemyTag>(e, EnemyTag{});
             }
+
+            // Zombies home toward the soldier (and will face their velocity).
+            world.view<Position, Velocity, EnemyTag>().for_each(
+                [&](Position& p, Velocity& v, EnemyTag&) {
+                    const vyro::f32 dx = state.player_x - p.value.x;
+                    v.value.x = std::clamp(dx * 0.5f, -1.6f, 1.6f);
+                });
 
             // ── Movement system ──────────────────────────────────────
             world.view<Position, Velocity>().for_each(
@@ -364,28 +386,54 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
 
             // ── Collision + cleanup systems (engine sphere tests) ────
             std::vector<vyro::Entity> dead;
+            std::vector<vyro::Entity> shot;
             world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& ep,
                                                                  EnemyTag&) {
+                if (world.has_component<DyingTag>(e)) {
+                    return; // already falling — no bites, no double kills
+                }
                 const vyro::Sphere enemy_sphere{ep.value, kEnemyRadius};
 
-                // Enemy reached / rammed the player?
+                // A zombie that reaches the soldier takes a bite: lose a heart.
                 const vyro::Sphere player_sphere{{state.player_x, 0.0f, kPlayerZ}, kPlayerRadius};
                 if (vyro::collide(enemy_sphere, player_sphere).colliding
                     || ep.value.z > kPlayerZ + 1.5f) {
-                    state.game_over = true;
+                    dead.push_back(e);
+                    --state.hp;
+                    if (state.hp <= 0) {
+                        state.game_over = true;
+                    }
+                    return;
                 }
 
-                // Bullet hits?
+                // Bullet hits start the death animation.
                 world.view<Position, BulletTag>().for_each_entity(
                     [&](vyro::Entity b, Position& bp, BulletTag&) {
                         if (vyro::collide(enemy_sphere, vyro::Sphere{bp.value, kBulletRadius})
                                 .colliding) {
-                            dead.push_back(e);
+                            shot.push_back(e);
                             dead.push_back(b);
                             ++state.score;
                         }
                     });
             });
+            for (const auto e : shot) {
+                if (!world.has_component<DyingTag>(e)) {
+                    world.add_component<DyingTag>(e, DyingTag{});
+                    if (auto* v = world.get_component<Velocity>(e)) {
+                        v->value = {};
+                    }
+                }
+            }
+
+            // Death playback: advance, then despawn when the fall completes.
+            world.view<DyingTag>().for_each([dt](DyingTag& d) { d.t += dt; });
+            world.view<Position, DyingTag>().for_each_entity(
+                [&](vyro::Entity e, Position&, DyingTag& d) {
+                    if (d.t >= kDeathDuration) {
+                        dead.push_back(e);
+                    }
+                });
             world.view<Position, BulletTag>().for_each_entity(
                 [&](vyro::Entity b, Position& bp, BulletTag&) {
                     if (bp.value.z < kSpawnZ - 2.0f) {
@@ -423,8 +471,23 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
             device.update_buffer(zombie.vbo, zombie_skinned.data(),
                                  zombie_skinned.size() * sizeof(vyro::Vertex3D));
         }
-        world.view<Position, EnemyTag>().for_each([&](Position& p, EnemyTag&) {
-            const vyro::Mat4 pose = vyro::Mat4::translation(p.value) * zombie_fit;
+        world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& p,
+                                                             EnemyTag&) {
+            // Face the direction of travel (toward the soldier).
+            vyro::f32 yaw = 0.0f;
+            if (const auto* v = world.get_component<Velocity>(e)) {
+                yaw = std::atan2(v->value.x, v->value.z);
+            }
+            vyro::Mat4 pose = vyro::Mat4::translation(p.value)
+                              * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
+
+            // Death: tip backward and sink into the ground over the fall.
+            if (const auto* dying = world.get_component<DyingTag>(e)) {
+                const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
+                pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
+                       * vyro::Mat4::rotation({0, 1, 0}, yaw)
+                       * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
+            }
             draw_mesh(zombie, pose, zombie_tex);
         });
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
@@ -432,11 +495,19 @@ FragColor=vec4(base*(0.35+0.65*d),1.0); })";
                       vyro::Mat4::translation({p.value.x, 0.9f, p.value.z}), white_tex);
         });
 
-        // Score in the title bar (the engine has no text rendering yet).
-        if (state.score != last_title_score) {
-            last_title_score = state.score;
+        // HUD in the title bar (on-screen text arrives in V3.4).
+        const int hud_key = state.score * 100 + state.hp * 10 + state.wave;
+        if (hud_key != last_title_score) {
+            last_title_score = hud_key;
+            std::string hearts;
+            for (int i = 0; i < std::max(state.hp, 0); ++i) {
+                hearts += "\u2764";
+            }
             glfwSetWindowTitle(window.native(),
-                               std::format("VyroStrike: Outbreak — score {}", state.score).c_str());
+                               std::format("VyroStrike: Outbreak — wave {}  score {}  {}",
+                                           state.wave, state.score,
+                                           state.game_over ? "DEAD (R to restart)" : hearts)
+                                   .c_str());
         }
 
         window.swap_buffers();
