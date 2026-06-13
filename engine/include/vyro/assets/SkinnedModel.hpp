@@ -76,6 +76,12 @@ public:
     // Sample `clip` at time t (wrapping) into per-joint skinning matrices.
     void pose(usize clip, f32 t, std::vector<Mat4>& out_joint_matrices) const;
 
+    // Cross-fade two clips: sample clip_a at ta and clip_b at tb, blend their
+    // per-node local transforms by `weight` (0 = a, 1 = b) — lerp translation
+    // and scale, nlerp rotation — then resolve into per-joint skinning matrices.
+    void pose_blend(usize clip_a, f32 ta, usize clip_b, f32 tb, f32 weight,
+                    std::vector<Mat4>& out_joint_matrices) const;
+
     // Apply skinning matrices to the bind pose. `out` must have mesh.vertices.size().
     void skin(const std::vector<Mat4>& joint_matrices, std::vector<Vertex3D>& out) const;
 };

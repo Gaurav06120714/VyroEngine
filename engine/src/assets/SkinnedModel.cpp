@@ -127,6 +127,69 @@ Quat mix_quat(const Quat& a, const Quat& b, f32 t)
     return nlerp(a, b, t);
 }
 
+// Wrap a playback time into [0, duration).
+f32 wrap_time(f32 t, f32 duration)
+{
+    if (duration > 0.0f) {
+        t = std::fmod(t, duration);
+        if (t < 0.0f) {
+            t += duration;
+        }
+    }
+    return t;
+}
+
+// Sample one node's animated local transform from a clip at time t, falling
+// back to the rest-pose transform when the node has no track in this clip.
+void sample_node(const SkinClip& clip, const SkinNode& node, usize n, f32 t, Vec3& tr, Quat& ro,
+                 Vec3& sc)
+{
+    tr = node.translation;
+    ro = node.rotation;
+    sc = node.scale;
+    const i32 track_index = n < clip.track_of_node.size() ? clip.track_of_node[n] : -1;
+    if (track_index >= 0) {
+        const NodeTrack& track = clip.tracks[static_cast<usize>(track_index)];
+        tr = sample_track<Vec3>(track.t_times, track.t_values, t, tr, mix_vec3);
+        ro = sample_track<Quat>(track.r_times, track.r_values, t, ro, mix_quat);
+        sc = sample_track<Vec3>(track.s_times, track.s_values, t, sc, mix_vec3);
+    }
+}
+
+// Resolve per-node local matrices into per-joint skinning matrices by walking
+// the node hierarchy to accumulate global transforms.
+void resolve_globals(const std::vector<SkinNode>& nodes, const std::vector<Mat4>& local,
+                     const std::vector<u32>& joint_nodes, const std::vector<Mat4>& inverse_bind,
+                     std::vector<Mat4>& out)
+{
+    std::vector<Mat4> global(nodes.size());
+    std::vector<bool> done(nodes.size(), false);
+    for (usize n = 0; n < nodes.size(); ++n) {
+        // Walk up to the root collecting the chain, then resolve down.
+        std::vector<usize> chain;
+        usize cur = n;
+        while (!done[cur]) {
+            chain.push_back(cur);
+            const i32 parent = nodes[cur].parent;
+            if (parent < 0) {
+                break;
+            }
+            cur = static_cast<usize>(parent);
+        }
+        for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
+            const i32 parent = nodes[*it].parent;
+            global[*it] =
+                parent >= 0 ? global[static_cast<usize>(parent)] * local[*it] : local[*it];
+            done[*it] = true;
+        }
+    }
+
+    out.resize(joint_nodes.size());
+    for (usize j = 0; j < joint_nodes.size(); ++j) {
+        out[j] = global[joint_nodes[j]] * inverse_bind[j];
+    }
+}
+
 } // namespace
 
 Mat4 quat_to_mat4(const Quat& q)
@@ -174,59 +237,49 @@ i32 SkinnedModel::find_clip(std::string_view name) const
 void SkinnedModel::pose(usize clip_index, f32 t, std::vector<Mat4>& out) const
 {
     const SkinClip& clip = clips[clip_index];
-    if (clip.duration > 0.0f) {
-        t = std::fmod(t, clip.duration);
-        if (t < 0.0f) {
-            t += clip.duration;
-        }
-    }
+    t = wrap_time(t, clip.duration);
 
     // Animated local transforms (rest pose where untracked).
     std::vector<Mat4> local(nodes.size());
     for (usize n = 0; n < nodes.size(); ++n) {
-        const SkinNode& node = nodes[n];
-        Vec3 tr = node.translation;
-        Quat ro = node.rotation;
-        Vec3 sc = node.scale;
-        const i32 track_index = n < clip.track_of_node.size() ? clip.track_of_node[n] : -1;
-        if (track_index >= 0) {
-            const NodeTrack& track = clip.tracks[static_cast<usize>(track_index)];
-            tr = sample_track<Vec3>(track.t_times, track.t_values, t, tr, mix_vec3);
-            ro = sample_track<Quat>(track.r_times, track.r_values, t, ro, mix_quat);
-            sc = sample_track<Vec3>(track.s_times, track.s_values, t, sc, mix_vec3);
-        }
+        Vec3 tr;
+        Quat ro;
+        Vec3 sc;
+        sample_node(clip, nodes[n], n, t, tr, ro, sc);
         local[n] = Mat4::translation(tr) * quat_to_mat4(ro) * Mat4::scale(sc);
     }
 
-    // Globals: nodes reference parents by index; resolve iteratively with memo.
-    std::vector<Mat4> global(nodes.size());
-    std::vector<bool> done(nodes.size(), false);
+    resolve_globals(nodes, local, joint_nodes, inverse_bind, out);
+}
+
+void SkinnedModel::pose_blend(usize clip_a, f32 ta, usize clip_b, f32 tb, f32 weight,
+                              std::vector<Mat4>& out) const
+{
+    const SkinClip& a = clips[clip_a];
+    const SkinClip& b = clips[clip_b];
+    const f32 w = weight < 0.0f ? 0.0f : (weight > 1.0f ? 1.0f : weight);
+    ta = wrap_time(ta, a.duration);
+    tb = wrap_time(tb, b.duration);
+
+    // Blend each node's local transform: lerp translation/scale, nlerp rotation.
+    std::vector<Mat4> local(nodes.size());
     for (usize n = 0; n < nodes.size(); ++n) {
-        // Walk up to the root collecting the chain, then resolve down.
-        std::vector<usize> chain;
-        usize cur = n;
-        while (!done[cur]) {
-            chain.push_back(cur);
-            const i32 parent = nodes[cur].parent;
-            if (parent < 0) {
-                break;
-            }
-            cur = static_cast<usize>(parent);
-        }
-        for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
-            const i32 parent = nodes[*it].parent;
-            global[*it] = (parent >= 0 && done[static_cast<usize>(parent)])
-                              ? global[static_cast<usize>(parent)] * local[*it]
-                              : (parent >= 0 ? global[static_cast<usize>(parent)] * local[*it]
-                                             : local[*it]);
-            done[*it] = true;
-        }
+        Vec3 tr_a;
+        Quat ro_a;
+        Vec3 sc_a;
+        sample_node(a, nodes[n], n, ta, tr_a, ro_a, sc_a);
+        Vec3 tr_b;
+        Quat ro_b;
+        Vec3 sc_b;
+        sample_node(b, nodes[n], n, tb, tr_b, ro_b, sc_b);
+
+        const Vec3 tr = mix_vec3(tr_a, tr_b, w);
+        const Quat ro = nlerp(ro_a, ro_b, w);
+        const Vec3 sc = mix_vec3(sc_a, sc_b, w);
+        local[n] = Mat4::translation(tr) * quat_to_mat4(ro) * Mat4::scale(sc);
     }
 
-    out.resize(joint_nodes.size());
-    for (usize j = 0; j < joint_nodes.size(); ++j) {
-        out[j] = global[joint_nodes[j]] * inverse_bind[j];
-    }
+    resolve_globals(nodes, local, joint_nodes, inverse_bind, out);
 }
 
 void SkinnedModel::skin(const std::vector<Mat4>& joint_matrices, std::vector<Vertex3D>& out) const
