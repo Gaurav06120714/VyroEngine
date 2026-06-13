@@ -21,6 +21,7 @@
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
+#include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
 #include "vyro/ecs/Registry.hpp"
@@ -44,6 +45,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <chrono>
 #include <cstdlib>
 #include <cmath>
@@ -64,6 +66,9 @@ struct Velocity {
     vyro::Vec3 value{};
 };
 struct BulletTag {};
+struct BulletDamage {
+    int value = 1;
+}; // V7.3: a bullet carries its weapon's damage
 struct EnemyTag {};
 // A zombie that has been shot: plays out its death (fall + sink) then despawns.
 struct DyingTag {
@@ -96,7 +101,6 @@ constexpr vyro::f32 kArenaHalfWidth = 5.0f;
 constexpr vyro::f32 kPlayerZ = 4.0f;
 constexpr vyro::f32 kPlayerSpeed = 6.5f;
 constexpr vyro::f32 kBulletSpeed = 18.0f;
-constexpr vyro::f32 kFireCooldown = 0.22f;
 constexpr vyro::f32 kSpawnZ = -28.0f;
 constexpr vyro::f32 kEnemyRadius = 0.55f;
 constexpr vyro::f32 kBulletRadius = 0.18f;
@@ -104,7 +108,6 @@ constexpr vyro::f32 kPlayerRadius = 0.6f;
 
 struct GameState {
     vyro::f32 player_x = 0.0f;
-    vyro::f32 fire_timer = 0.0f;
     vyro::f32 spawn_timer = 0.0f;
     vyro::f32 spawn_interval = 1.4f;
     vyro::f32 enemy_speed = 2.2f;
@@ -218,6 +221,11 @@ int main()
     input.bind_action("Fire", vyro::KeyCode::Space);
     input.bind_action("Restart", vyro::KeyCode::R);
     input.bind_action("Quit", vyro::KeyCode::Escape);
+    // Weapon selection (V7.3): 1/2/3 pick a loadout, Q reloads.
+    input.bind_action("Weapon1", vyro::KeyCode::Num1);
+    input.bind_action("Weapon2", vyro::KeyCode::Num2);
+    input.bind_action("Weapon3", vyro::KeyCode::Num3);
+    input.bind_action("Reload", vyro::KeyCode::Q);
 
     // ── Real audio: synthesized SFX through the output device ────────
     vyro::AudioDevice audio;
@@ -629,6 +637,13 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     const vyro::Vec3 base_eye{0.0f, 4.5f, kPlayerZ + 6.5f};
     const vyro::Vec3 base_target{0.0f, 0.0f, kPlayerZ - 8.0f};
 
+    // ── Weapons (V7.3): pistol / rifle / shotgun loadouts ───────────────
+    std::array<vyro::game::Weapon, 3> weapons{
+        vyro::game::Weapon({"pistol", 0.22f, 1, 0.0f, 1, 12, 0.9f}),
+        vyro::game::Weapon({"rifle", 0.09f, 1, 0.04f, 1, 30, 1.4f}),
+        vyro::game::Weapon({"shotgun", 0.7f, 7, 0.5f, 2, 6, 1.6f})};
+    int current_weapon = 0;
+
     // ── Profiling (V6.5): frame-time EMA + a short history for the graph ─
     vyro::FrameStats fps_stats(0.1);
     std::vector<vyro::f32> frame_history; // recent frame times (ms)
@@ -684,17 +699,37 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 }
             }
 
-            // ── Shooting ─────────────────────────────────────────────
-            state.fire_timer -= dt;
-            if (input.is_action_down("Fire") && state.fire_timer <= 0.0f) {
-                state.fire_timer = kFireCooldown;
+            // ── Weapons & shooting (V7.3) ────────────────────────────
+            if (input.is_action_pressed("Weapon1")) {
+                current_weapon = 0;
+            }
+            if (input.is_action_pressed("Weapon2")) {
+                current_weapon = 1;
+            }
+            if (input.is_action_pressed("Weapon3")) {
+                current_weapon = 2;
+            }
+            if (input.is_action_pressed("Reload")) {
+                weapons[static_cast<vyro::usize>(current_weapon)].begin_reload();
+            }
+            vyro::game::Weapon& weapon = weapons[static_cast<vyro::usize>(current_weapon)];
+            weapon.update(dt);
+            if (input.is_action_down("Fire") && weapon.fire()) {
+                const auto& ws = weapon.stats();
                 if (sound_on) {
                     audio.play(sfx_shot, 0.8f);
                 }
-                const auto b = world.create_entity();
-                world.add_component<Position>(b, Position{{state.player_x, 0.0f, kPlayerZ - 0.8f}});
-                world.add_component<Velocity>(b, Velocity{{0.0f, 0.0f, -kBulletSpeed}});
-                world.add_component<BulletTag>(b, BulletTag{});
+                // Spawn one bullet per pellet, fanned across the spread cone.
+                for (const vyro::f32 ang : vyro::game::spread_angles(ws.pellets, ws.spread)) {
+                    const auto b = world.create_entity();
+                    world.add_component<Position>(
+                        b, Position{{state.player_x, 0.0f, kPlayerZ - 0.8f}});
+                    world.add_component<Velocity>(
+                        b, Velocity{{std::sin(ang) * kBulletSpeed, 0.0f,
+                                     -std::cos(ang) * kBulletSpeed}});
+                    world.add_component<BulletTag>(b, BulletTag{});
+                    world.add_component<BulletDamage>(b, BulletDamage{ws.damage});
+                }
                 vyro::BurstParams muzzle;
                 muzzle.origin = {state.player_x, 0.9f, kPlayerZ - 0.8f};
                 muzzle.base_velocity = {0.0f, 0.2f, -6.0f};
@@ -702,9 +737,13 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 muzzle.lifetime = 0.18f;
                 muzzle.size = 0.14f;
                 muzzle.color = {1.0f, 0.85f, 0.35f};
-                muzzle.count = 14;
+                muzzle.count = ws.pellets > 1 ? 22 : 14;
                 particles.burst(muzzle);
-                camera_shake.add_trauma(0.16f); // a small recoil kick
+                camera_shake.add_trauma(ws.pellets > 1 ? 0.35f : 0.16f);
+            }
+            // Auto-reload when the magazine runs dry.
+            if (weapon.ammo() == 0 && !weapon.reloading()) {
+                weapon.begin_reload();
             }
 
             // ── Enemy spawning (difficulty ramps with score) ─────────
@@ -802,7 +841,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         if (vyro::collide(enemy_sphere, vyro::Sphere{bp.value, kBulletRadius})
                                 .colliding) {
                             dead.push_back(b); // bullet is consumed
-                            --en->health;
+                            const auto* bd = world.get_component<BulletDamage>(b);
+                            en->health -= bd != nullptr ? bd->value : 1;
                             if (en->health <= 0) {
                                 shot.push_back(e);
                                 state.score += kEnemyTypes[en->type].score;
@@ -1145,6 +1185,19 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         vyro::text::build(std::format("HORDE {} DRAWS {}", horde_visible,
                                       device.draw_call_count()),
                           -0.97f, 0.70f, 0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
+        // Weapon + ammo (V7.3).
+        {
+            const vyro::game::Weapon& wpn = weapons[static_cast<vyro::usize>(current_weapon)];
+            const std::string ammo_txt = wpn.reloading()
+                                             ? std::string("RELOADING")
+                                             : std::format("{}/{}", wpn.ammo(), wpn.stats().mag);
+            std::string wname = wpn.stats().name;
+            for (char& c : wname) {
+                c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            }
+            vyro::text::build(std::format("{} {}", wname, ammo_txt), -0.97f, -0.86f, 0.06f,
+                              hud_aspect, {1.0f, 0.8f, 0.4f}, hud_verts);
+        }
         // Profiler readout: FPS / frame time, green under budget, red over.
         const bool over = fps_stats.over_budget(kFrameBudgetMs);
         const vyro::Vec3 perf_col = over ? vyro::Vec3{0.95f, 0.35f, 0.3f}
