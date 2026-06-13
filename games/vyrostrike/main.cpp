@@ -13,6 +13,7 @@
 #include "vyro/assets/GlbLoader.hpp"
 #include "vyro/assets/ObjLoader.hpp"
 #include "vyro/ai/Steering.hpp"
+#include "vyro/animation/CycleVariation.hpp"
 #include "vyro/assets/SkinnedModel.hpp"
 #include "vyro/audio/AudioDevice.hpp"
 #include "vyro/audio/AudioFile.hpp"
@@ -41,6 +42,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <cmath>
@@ -437,7 +439,18 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     constexpr vyro::usize kMaxZombieInstances = 64;
     const auto horde_instance_vbo = device.create_buffer(
         {vyro::BufferType::Vertex, vyro::instancing::buffer_bytes(kMaxZombieInstances), nullptr});
-    std::vector<vyro::Mat4> horde_xforms; // one model matrix per visible zombie
+
+    // V7.1: spread the horde across K phase buckets so they don't march in
+    // lockstep. Each bucket has its own skinned pose buffer (animated at an
+    // offset of the cycle) and is drawn as a separate instanced batch.
+    constexpr vyro::u32 kPhaseBuckets = 5;
+    std::array<vyro::BufferHandle, kPhaseBuckets> pose_vbos;
+    for (auto& vb : pose_vbos) {
+        vb = device.create_buffer({vyro::BufferType::Vertex,
+                                   zombie_model.mesh.vertices.size() * sizeof(vyro::Vertex3D),
+                                   nullptr});
+    }
+    std::array<std::vector<vyro::Mat4>, kPhaseBuckets> bucket_xforms;
 
     auto upload_tex = [&](const vyro::Image& img, bool has) {
         if (has) {
@@ -947,83 +960,101 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 nearest = std::min(nearest, std::sqrt(dx * dx + dz * dz));
             });
 
-        // Animate the horde: cross-fade walk->bite by proximity, skin, stream.
+        // Animate + draw the horde (V7.1): split across phase buckets so they
+        // don't move in lockstep; each bucket is skinned at its own cycle offset
+        // and drawn as a separate instanced batch.
+        int horde_visible = 0;
         if (!zombie_model.clips.empty()) {
-            const float anim_t =
-                std::chrono::duration<float>(now.time_since_epoch()).count();
-            // Full walk beyond kBiteFar, full bite within kBiteNear.
+            const float anim_t = std::chrono::duration<float>(now.time_since_epoch()).count();
             constexpr vyro::f32 kBiteNear = 1.6f;
             constexpr vyro::f32 kBiteFar = 3.2f;
             const vyro::f32 bite_weight =
                 std::clamp((kBiteFar - nearest) / (kBiteFar - kBiteNear), 0.0f, 1.0f);
-            VYRO_PROFILE_SCOPE("zombie_skinning");
-            zombie_model.pose_blend(static_cast<vyro::usize>(walk_clip), anim_t,
-                                    static_cast<vyro::usize>(bite_clip), anim_t, bite_weight,
-                                    zombie_pose);
-            zombie_model.skin(zombie_pose, zombie_skinned);
-            device.update_buffer(zombie.vbo, zombie_skinned.data(),
-                                 zombie_skinned.size() * sizeof(vyro::Vertex3D));
-        }
-        // Collect a model matrix per visible zombie for the instanced draw.
-        horde_xforms.clear();
-        if (coop_is_joiner && coop_state && coop_state->connected()) {
-            // Render the host's authoritative horde (V6.3).
-            for (const vyro::Vec3& zp : coop_state->latest().horde) {
-                if (horde_xforms.size() >= kMaxZombieInstances) {
-                    break;
-                }
-                if (!vyro::intersects_sphere(frustum, {zp.x, 0.9f, zp.z}, 1.6f)) {
-                    continue;
-                }
-                const vyro::f32 yaw = std::atan2(state.player_x - zp.x, kPlayerZ - zp.z);
-                horde_xforms.push_back(vyro::Mat4::translation(zp)
-                                       * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit);
+            const vyro::f32 walk_dur =
+                zombie_model.clips[static_cast<vyro::usize>(walk_clip)].duration;
+
+            for (auto& b : bucket_xforms) {
+                b.clear();
             }
-        } else {
-            world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& p,
-                                                                 EnemyTag&) {
-                if (horde_xforms.size() >= kMaxZombieInstances) {
-                    return;
+            auto push_bucket = [&](vyro::u32 id, const vyro::Mat4& m) {
+                const vyro::u32 b = vyro::anim::phase_bucket(id, kPhaseBuckets);
+                if (bucket_xforms[b].size() < kMaxZombieInstances) {
+                    bucket_xforms[b].push_back(m);
                 }
-                // Frustum-cull: skip zombies the camera can't see (V5.3).
-                if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
-                    return;
+            };
+
+            if (coop_is_joiner && coop_state && coop_state->connected()) {
+                // Render the host's authoritative horde (V6.3).
+                const auto& horde = coop_state->latest().horde;
+                for (vyro::usize i = 0; i < horde.size(); ++i) {
+                    const vyro::Vec3& zp = horde[i];
+                    if (!vyro::intersects_sphere(frustum, {zp.x, 0.9f, zp.z}, 1.6f)) {
+                        continue;
+                    }
+                    const vyro::f32 yaw = std::atan2(state.player_x - zp.x, kPlayerZ - zp.z);
+                    push_bucket(static_cast<vyro::u32>(i),
+                                vyro::Mat4::translation(zp)
+                                    * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit);
                 }
-                vyro::f32 yaw = 0.0f;
-                if (const auto* v = world.get_component<Velocity>(e)) {
-                    yaw = std::atan2(v->value.x, v->value.z);
-                }
-                vyro::Mat4 pose = vyro::Mat4::translation(p.value)
-                                  * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
-                // Death: tip backward and sink into the ground over the fall.
-                if (const auto* dying = world.get_component<DyingTag>(e)) {
-                    const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
-                    pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
-                           * vyro::Mat4::rotation({0, 1, 0}, yaw)
-                           * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
-                }
-                horde_xforms.push_back(pose);
-            });
-        }
-        if (!horde_xforms.empty()) {
-            // One instanced draw for the whole visible horde (V6.1).
-            device.update_buffer(horde_instance_vbo, horde_xforms.data(),
-                                 horde_xforms.size() * sizeof(vyro::Mat4));
+            } else {
+                world.view<Position, EnemyTag>().for_each_entity(
+                    [&](vyro::Entity e, Position& p, EnemyTag&) {
+                        if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
+                            return; // frustum-cull (V5.3)
+                        }
+                        vyro::f32 yaw = 0.0f;
+                        if (const auto* v = world.get_component<Velocity>(e)) {
+                            yaw = std::atan2(v->value.x, v->value.z);
+                        }
+                        vyro::Mat4 pose = vyro::Mat4::translation(p.value)
+                                          * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
+                        if (const auto* dying = world.get_component<DyingTag>(e)) {
+                            const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
+                            pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
+                                   * vyro::Mat4::rotation({0, 1, 0}, yaw)
+                                   * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
+                        }
+                        push_bucket(e.index, pose);
+                    });
+            }
+
+            // Shared instanced-shader state for every bucket draw.
             device.set_uniform_mat4(inst_shader, "u_vp", camera.view_projection());
             device.set_uniform_mat4(inst_shader, "u_lightVP", light_vp);
             device.set_uniform_vec3(inst_shader, "u_lightDir", sun_dir);
             device.bind_texture(device.render_target_texture(shadow_rt), 1);
             device.set_uniform_int(inst_shader, "u_shadowMap", 1);
             device.set_uniform_int(inst_shader, "u_shadowOn", 1);
-            vyro::DrawCommand cmd;
-            cmd.shader = inst_shader;
-            cmd.vertex_buffer = zombie.vbo;
-            cmd.index_buffer = zombie.ibo;
-            cmd.texture = zombie_tex;
-            cmd.index_count = zombie.index_count;
-            cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
-            device.draw_instanced(cmd, horde_instance_vbo,
-                                  static_cast<vyro::u32>(horde_xforms.size()));
+
+            // One skinned pose + one instanced draw per non-empty bucket.
+            for (vyro::u32 b = 0; b < kPhaseBuckets; ++b) {
+                if (bucket_xforms[b].empty()) {
+                    continue;
+                }
+                {
+                    VYRO_PROFILE_SCOPE("zombie_skinning");
+                    const vyro::f32 t =
+                        vyro::anim::bucket_time(b, kPhaseBuckets, walk_dur, anim_t);
+                    zombie_model.pose_blend(static_cast<vyro::usize>(walk_clip), t,
+                                            static_cast<vyro::usize>(bite_clip), t, bite_weight,
+                                            zombie_pose);
+                    zombie_model.skin(zombie_pose, zombie_skinned);
+                    device.update_buffer(pose_vbos[b], zombie_skinned.data(),
+                                         zombie_skinned.size() * sizeof(vyro::Vertex3D));
+                }
+                device.update_buffer(horde_instance_vbo, bucket_xforms[b].data(),
+                                     bucket_xforms[b].size() * sizeof(vyro::Mat4));
+                vyro::DrawCommand cmd;
+                cmd.shader = inst_shader;
+                cmd.vertex_buffer = pose_vbos[b];
+                cmd.index_buffer = zombie.ibo;
+                cmd.texture = zombie_tex;
+                cmd.index_count = zombie.index_count;
+                cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+                device.draw_instanced(cmd, horde_instance_vbo,
+                                      static_cast<vyro::u32>(bucket_xforms[b].size()));
+                horde_visible += static_cast<int>(bucket_xforms[b].size());
+            }
         }
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
             if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 0.4f)) {
@@ -1068,7 +1099,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
         vyro::text::build(std::format("TILES {}/{}", tiles_drawn, tiles_total), -0.97f, 0.76f,
                           0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
-        vyro::text::build(std::format("HORDE {} DRAWS {}", static_cast<int>(horde_xforms.size()),
+        vyro::text::build(std::format("HORDE {} DRAWS {}", horde_visible,
                                       device.draw_call_count()),
                           -0.97f, 0.70f, 0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
         // Profiler readout: FPS / frame time, green under budget, red over.
