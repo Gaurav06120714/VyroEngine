@@ -27,6 +27,7 @@
 #include "vyro/platform/Window.hpp"
 #include "vyro/render/Camera.hpp"
 #include "vyro/render/CameraRig.hpp"
+#include "vyro/render/Frustum.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
 #include "vyro/render/ParticleSystem.hpp"
 #include "vyro/render/PostProcess.hpp"
@@ -755,7 +756,28 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         device.set_uniform_int(shader, "u_shadowMap", 1);
         device.set_uniform_int(shader, "u_shadowOn", 1);
 
-        draw_mesh(ground, vyro::Mat4::identity(), checker_tex);
+        // ── Larger world + frustum culling (V5.3) ────────────────────
+        // The arena is a grid of ground tiles; only the visible ones draw.
+        const vyro::Frustum frustum = vyro::frustum_from_view_projection(camera.view_projection());
+        int tiles_drawn = 0;
+        int tiles_total = 0;
+        constexpr vyro::f32 kTile = 60.0f; // ground mesh spans [-30,30]
+        constexpr int kTileRadius = 3;     // 7x7 grid -> ~420-unit world
+        for (int tz = -kTileRadius; tz <= kTileRadius; ++tz) {
+            for (int tx = -kTileRadius; tx <= kTileRadius; ++tx) {
+                ++tiles_total;
+                const vyro::f32 cx = std::round(cam_focus_x / kTile) * kTile
+                                     + static_cast<vyro::f32>(tx) * kTile;
+                const vyro::f32 cz = kPlayerZ + static_cast<vyro::f32>(tz) * kTile;
+                const vyro::Vec3 lo{cx - 30.0f, -0.95f, cz - 30.0f};
+                const vyro::Vec3 hi{cx + 30.0f, -0.85f, cz + 30.0f};
+                if (!vyro::intersects_aabb(frustum, lo, hi)) {
+                    continue; // off-screen tile culled
+                }
+                draw_mesh(ground, vyro::Mat4::translation({cx, 0.0f, cz}), checker_tex);
+                ++tiles_drawn;
+            }
+        }
 
         // Co-op tick: publish our soldier and replicate the peer's.
         if (coop) {
@@ -825,9 +847,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                        * vyro::Mat4::rotation({0, 1, 0}, yaw)
                        * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
             }
+            // Frustum-cull: skip zombies the camera can't see (V5.3).
+            if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
+                return;
+            }
             draw_mesh(zombie, pose, zombie_tex);
         });
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
+            if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 0.4f)) {
+                return;
+            }
             draw_mesh(bullet,
                       vyro::Mat4::translation({p.value.x, 0.9f, p.value.z}), white_tex);
         });
@@ -861,6 +890,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                           hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
         vyro::text::build(std::format("SCORE {}", state.score), -0.97f, 0.85f, 0.07f,
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
+        vyro::text::build(std::format("TILES {}/{}", tiles_drawn, tiles_total), -0.97f, 0.76f,
+                          0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
         std::string hearts;
         for (int i = 0; i < std::max(state.hp, 0); ++i) {
             hearts += '\x03';
