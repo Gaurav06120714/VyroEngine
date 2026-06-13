@@ -52,5 +52,18 @@ int main()
         suite.check(!approx(low.z, high.z), "different heights have different light-space depth");
     }
 
+    // Slope-scaled bias: base when facing the light, more at grazing, clamped.
+    {
+        suite.check(approx(shadows::slope_scaled_bias(1.0f, 0.002f, 0.01f), 0.002f),
+                    "facing the light uses the base bias");
+        suite.check(approx(shadows::slope_scaled_bias(0.0f, 0.002f, 0.01f), 0.012f),
+                    "grazing adds the full slope bias");
+        suite.check(shadows::slope_scaled_bias(0.5f, 0.002f, 0.01f) > 0.002f
+                        && shadows::slope_scaled_bias(0.5f, 0.002f, 0.01f) < 0.012f,
+                    "mid angle is between base and max");
+        suite.check(approx(shadows::slope_scaled_bias(-5.0f, 0.002f, 0.01f), 0.012f),
+                    "n.l clamps below zero");
+    }
+
     return suite.summary();
 }
