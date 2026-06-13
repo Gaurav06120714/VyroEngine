@@ -33,6 +33,11 @@ public:
     void draw(const DrawCommand& command) override;
     void end_frame() override;
 
+    [[nodiscard]] RenderTargetHandle create_render_target(const RenderTargetDesc& desc) override;
+    void destroy_render_target(RenderTargetHandle handle) override;
+    void bind_render_target(RenderTargetHandle handle) override;
+    [[nodiscard]] TextureHandle render_target_texture(RenderTargetHandle handle) override;
+
     // Concrete uniform helpers (used by 3D rendering paths).
     void set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value);
     void set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 value);
@@ -47,9 +52,18 @@ private:
         u32 target = 0; // GL_ARRAY_BUFFER or GL_ELEMENT_ARRAY_BUFFER
     };
 
+    struct GLRenderTarget {
+        u32 fbo = 0;
+        u32 color_tex_id = 0; // RHI texture id for the color attachment
+        u32 depth_rbo = 0;
+        u32 width = 0;
+        u32 height = 0;
+    };
+
     std::unordered_map<u32, GLBuffer> m_buffers; // RHI id -> GL buffer
     std::unordered_map<u32, u32> m_programs;     // RHI id -> GL program
     std::unordered_map<u32, u32> m_textures;     // RHI id -> GL texture
+    std::unordered_map<u32, GLRenderTarget> m_render_targets; // RHI id -> FBO
     u32 m_vao = 0;
     u32 m_next_id = 1;
 };

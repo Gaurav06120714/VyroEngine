@@ -174,6 +174,76 @@ void OpenGLDevice::destroy_shader(ShaderHandle handle)
     }
 }
 
+RenderTargetHandle OpenGLDevice::create_render_target(const RenderTargetDesc& desc)
+{
+    const auto w = static_cast<GLsizei>(desc.width);
+    const auto h = static_cast<GLsizei>(desc.height);
+
+    // Color texture: clamp + linear, NO mipmaps (an incomplete mip chain would
+    // sample as black). Registered in m_textures so the post pass can sample it.
+    GLuint color = 0;
+    glGenTextures(1, &color);
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    const GLint internal = desc.hdr ? GL_RGBA16F : GL_RGBA8;
+    const GLenum type = desc.hdr ? GL_FLOAT : GL_UNSIGNED_BYTE;
+    glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, GL_RGBA, type, nullptr);
+
+    GLuint depth = 0;
+    glGenRenderbuffers(1, &depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, w, h);
+
+    GLuint fbo = 0;
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        VYRO_ERROR("OpenGL", "render target {}x{} incomplete", desc.width, desc.height);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    const u32 color_id = m_next_id++;
+    m_textures[color_id] = color;
+    const u32 id = m_next_id++;
+    m_render_targets[id] = GLRenderTarget{fbo, color_id, depth, desc.width, desc.height};
+    return RenderTargetHandle{id};
+}
+
+void OpenGLDevice::destroy_render_target(RenderTargetHandle handle)
+{
+    const auto it = m_render_targets.find(handle.id);
+    if (it == m_render_targets.end()) {
+        return;
+    }
+    glDeleteFramebuffers(1, &it->second.fbo);
+    glDeleteRenderbuffers(1, &it->second.depth_rbo);
+    destroy_texture(TextureHandle{it->second.color_tex_id});
+    m_render_targets.erase(it);
+}
+
+void OpenGLDevice::bind_render_target(RenderTargetHandle handle)
+{
+    const auto it = m_render_targets.find(handle.id);
+    if (it == m_render_targets.end()) {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0); // back to the window
+        return;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, it->second.fbo);
+    glViewport(0, 0, static_cast<GLsizei>(it->second.width),
+               static_cast<GLsizei>(it->second.height));
+}
+
+TextureHandle OpenGLDevice::render_target_texture(RenderTargetHandle handle)
+{
+    const auto it = m_render_targets.find(handle.id);
+    return it != m_render_targets.end() ? TextureHandle{it->second.color_tex_id} : TextureHandle{};
+}
+
 void OpenGLDevice::begin_frame() {}
 
 void OpenGLDevice::set_viewport(u32 width, u32 height)
