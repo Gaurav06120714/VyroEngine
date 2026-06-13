@@ -97,9 +97,13 @@ Each major version is released on GitHub with a packaged tarball.
   - **v3.4.0** ✅ V4.4 Co-op Multiplayer (`CoopLink`; UDP 2nd soldier via `VYRO_COOP`)
   - **v3.5.0** ✅ V4.5 Camera & Post-FX (`CameraRig` follow + shake; vignette/damage-flash pass)
   - **v4.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
-- **v5.x (next)** — rendering & worlds era (see `docs/ROADMAP_V5.md`): HDR
-  bloom via render targets, shadows, larger streamed worlds, gameplay AI,
-  GPU-driven instancing.
+- **v5.0.0** — rendering & worlds era (released):
+  - **v4.1.0** ✅ V5.1 Render Targets & HDR Bloom (offscreen HDR + bloom/ACES)
+  - **v4.2.0** ✅ V5.2 Real-Time Shadows (directional shadow map + PCF)
+  - **v4.3.0** ✅ V5.3 Larger Worlds & Culling (`Frustum`; tiled world)
+  - **v4.4.0** ✅ V5.4 Gameplay AI (`ai::Steering`; seek + separation horde)
+  - **v4.5.0** ✅ V5.5 GPU-Driven Rendering (`Batch`; single-call horde)
+  - **v5.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
 
 > Tag scheme note: v4 phase tags were numbered `v3.1.0`…`v3.5.0` (continuing the
 > patch series), with the umbrella release at `v4.0.0`. V5 follows the same
@@ -122,7 +126,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V5.3 Larger Worlds & Culling | done — `render/Frustum.hpp` (Gribb-Hartmann plane extraction + sphere/AABB tests). The arena is now a 7x7 tiled ground; off-screen tiles and zombies/bullets are frustum-culled (HUD shows drawn/total tiles). | v4.3.0 |
 | ✅ V5.4 Gameplay AI | done — `ai/Steering.hpp` (seek + inverse-distance separation, speed-clamped `horde_velocity`, idle/seek/attack `select_state`). The game drives zombies with it so the horde fans out and surrounds. | v4.4.0 |
 | ✅ V5.5 GPU-Driven Rendering | done — `render/Batch.hpp` `batch_transform` merges the horde into one buffer; the game draws all visible zombies in a single call and shows a draw-call counter in the HUD. (True GPU hardware instancing — per-instance attributes/`glDrawElementsInstanced` — is a future RHI addition; this is the CPU batch.) | v4.5.0 |
-| **▶ v5.0.0** | **DO THIS NEXT** — umbrella release: bump version to 5.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v5.0.0 |
+| ✅ v5.0.0 | done — version bumped to 5.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V5 complete.** | v5.0.0 |
+| **▶ V6 (TBD)** | **DECIDE NEXT** — V5 (rendering & worlds) is shipped. Candidate V6 themes: true GPU hardware instancing + a depth-texture RTT, skinned-mesh instancing, a proper scene/level editor pipeline, or networked co-op gameplay (shared horde state). Write `docs/ROADMAP_V6.md` before starting. | v5.1.0+ |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -193,5 +198,5 @@ work into the game and screenshot the result).
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 49 test suites, all green in Release.
-- Latest tag: **v4.5.0** (V5.5 batching complete; v5.0.0 release next).
-- **Next action: cut the v5.0.0 umbrella release** (version bump + cpack + GitHub release).
+- Latest tag: **v5.0.0** (V5 umbrella release; V5 complete).
+- **Next action: scope V6** (see §4) — write docs/ROADMAP_V6.md first.
