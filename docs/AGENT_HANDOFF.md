@@ -130,7 +130,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V6.1 GPU Hardware Instancing | done — `OpenGLDevice::draw_instanced` + `render/Instancing.hpp`; the horde draws in one `glDrawElementsInstanced` call from a per-instance model-matrix buffer (replaces the V5.5 CPU batch). | v5.1.0 |
 | ✅ V6.2 Depth-Texture RTT & Soft Shadows | done — depth-texture RTT (`depth_texture` desc flag + GL depth FBO); shadow pass uses it with `shadows::slope_scaled_bias` + 5x5 PCF. | v5.2.0 |
 | ✅ V6.3 Networked Co-op Gameplay | done — `CoopState.hpp` shares score/wave/hp/horde from an authoritative host; joiner stops spawning and renders the host horde (instanced) + score. | v5.3.0 |
-| **▶ V6.4 Level & Obstacle Pipeline** | **DO THIS NEXT** — authored arenas/obstacles via `scene/SceneSerializer`; obstacles occlude (shadows/render), block movement (physics), and are avoided by the horde (add obstacle-avoidance to `ai/Steering`). | v5.4.0 |
+| ✅ V6.4 Level & Obstacle Pipeline | done — `ai::avoid_obstacles` + pillars that render, shadow, block the soldier, and divert the horde. | v5.4.0 |
+| **▶ V6.5 Profiling & Optimization** | **DO THIS NEXT** — wire `core/Profiler` into the frame with an on-screen frame-time/draw-call graph, set a budget, optimize hot paths. Then the **v6.0.0** umbrella release. | v5.5.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -201,5 +202,5 @@ work into the game and screenshot the result).
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 51 test suites, all green in Release.
-- Latest tag: **v5.3.0** (V6.3 co-op gameplay complete).
-- **Next action: implement V6.4 Level & Obstacle Pipeline** (see §4 and docs/ROADMAP_V6.md).
+- Latest tag: **v5.4.0** (V6.4 level obstacles complete).
+- **Next action: implement V6.5 Profiling & Optimization, then the v6.0.0 release** (see §4).

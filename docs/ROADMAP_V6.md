@@ -21,7 +21,7 @@ V6.1 and V6.2 close those gaps first; the rest build on top.
 | ✅ V6.1 — GPU Hardware Instancing | done — `OpenGLDevice::draw_instanced` (`glDrawElementsInstanced`, mat4 instance attribute at locations 4–7, divisor 1) + `render/Instancing.hpp` layout helper. The horde draws in one instanced call from a per-instance transform buffer, replacing the V5.5 CPU batch. | v5.1.0 |
 | ✅ V6.2 — Depth-Texture RTT & Soft Shadows | done — sampleable depth-texture targets in the RHI; shadow pass renders to a depth texture, sampled with slope-scaled bias + 5x5 PCF. | v5.2.0 |
 | ✅ V6.3 — Networked Co-op Gameplay | done — `net/CoopState.hpp` (`CoopWorldState` + `CoopStateChannel`); host broadcasts score/wave/hp/horde on a second channel, joiner renders the shared horde + score. | v5.3.0 |
-| V6.4 — Level & Obstacle Pipeline | Author arenas (ground extents, spawn points, obstacles/cover) and load them through the existing `scene/SceneSerializer`. Obstacles occlude (shadows + render), block movement (physics), and are avoided by the horde (obstacle-avoidance steering added to `ai/Steering`). | v5.4.0 |
+| ✅ V6.4 — Level & Obstacle Pipeline | done — `ai::Obstacle` + `avoid_obstacles`; the arena has shadow-casting pillars that block the soldier and divert the horde. (Layout is authored in code; SceneSerializer load is a natural extension.) | v5.4.0 |
 | V6.5 — Profiling & Optimization | Wire `core/Profiler` into the frame loop with an on-screen frame-time / draw-call graph, set a per-frame budget, and optimize the hot paths surfaced (CPU skinning, batching/instancing, culling). Document before/after numbers. | v5.5.0 |
 | v6.0.0 release | All of the above stabilized + packaged (`cpack` tarball + GitHub release) | v6.0.0 |
 
