@@ -111,7 +111,7 @@ Each major version is released on GitHub with a packaged tarball.
 
 ---
 
-## 4. WHAT TO DO NEXT  (V4 done — docs/ROADMAP_V4.md; V5 next — docs/ROADMAP_V5.md)
+## 4. WHAT TO DO NEXT  (V4/V5 done; V6 next — docs/ROADMAP_V6.md)
 
 | Phase | Goal | Tag |
 |-------|------|-----|
@@ -127,7 +127,7 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V5.4 Gameplay AI | done — `ai/Steering.hpp` (seek + inverse-distance separation, speed-clamped `horde_velocity`, idle/seek/attack `select_state`). The game drives zombies with it so the horde fans out and surrounds. | v4.4.0 |
 | ✅ V5.5 GPU-Driven Rendering | done — `render/Batch.hpp` `batch_transform` merges the horde into one buffer; the game draws all visible zombies in a single call and shows a draw-call counter in the HUD. (True GPU hardware instancing — per-instance attributes/`glDrawElementsInstanced` — is a future RHI addition; this is the CPU batch.) | v4.5.0 |
 | ✅ v5.0.0 | done — version bumped to 5.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V5 complete.** | v5.0.0 |
-| **▶ V6 (TBD)** | **DECIDE NEXT** — V5 (rendering & worlds) is shipped. Candidate V6 themes: true GPU hardware instancing + a depth-texture RTT, skinned-mesh instancing, a proper scene/level editor pipeline, or networked co-op gameplay (shared horde state). Write `docs/ROADMAP_V6.md` before starting. | v5.1.0+ |
+| **▶ V6.1 GPU Hardware Instancing** | **DO THIS NEXT** — V6 is planned (see `docs/ROADMAP_V6.md`, "production-grade era"). Start here: add per-instance vertex attributes + an instanced draw path to the RHI/OpenGL backend and draw the horde with one `glDrawElementsInstanced` call, replacing the V5.5 CPU batch. Then V6.2 depth-texture RTT, V6.3 co-op gameplay, V6.4 level pipeline, V6.5 profiling → `v6.0.0`. | v5.1.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -199,4 +199,4 @@ work into the game and screenshot the result).
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 49 test suites, all green in Release.
 - Latest tag: **v5.0.0** (V5 umbrella release; V5 complete).
-- **Next action: scope V6** (see §4) — write docs/ROADMAP_V6.md first.
+- **Next action: implement V6.1 GPU Hardware Instancing** (see §4 and docs/ROADMAP_V6.md).
