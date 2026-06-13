@@ -24,6 +24,7 @@
 #include "vyro/platform/Window.hpp"
 #include "vyro/render/Camera.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
+#include "vyro/render/ParticleSystem.hpp"
 #include "vyro/render/TextGeometry.hpp"
 
 #include <GLFW/glfw3.h>
@@ -215,6 +216,24 @@ void main(){ gl_Position=vec4(aPos,1.0); vColor=aColor; })";
 in vec3 vColor; out vec4 FragColor;
 void main(){ FragColor=vec4(vColor,1.0); })";
     const auto hud_shader = device.create_shader({hud_vs, hud_fs});
+
+    // ── Particles (V4.1): world-space unlit colored quads ────────────
+    const char* part_vs = R"(#version 330 core
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aUV;  layout(location=3) in vec3 aColor;
+uniform mat4 u_vp;
+out vec3 vColor;
+void main(){ gl_Position=u_vp*vec4(aPos,1.0); vColor=aColor; })";
+    const char* part_fs = R"(#version 330 core
+in vec3 vColor; out vec4 FragColor;
+void main(){ FragColor=vec4(vColor,1.0); })";
+    const auto part_shader = device.create_shader({part_vs, part_fs});
+    constexpr vyro::usize kPartMaxVerts = 60000;
+    const auto part_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex, kPartMaxVerts * sizeof(vyro::Vertex3D), nullptr});
+    vyro::ParticleSystem particles(2048);
+    particles.set_gravity({0.0f, -5.0f, 0.0f});
+    std::vector<vyro::Vertex3D> part_verts;
     constexpr vyro::usize kHudMaxVerts = 40000;
     const auto hud_vbo = device.create_buffer(
         {vyro::BufferType::Vertex, kHudMaxVerts * sizeof(vyro::Vertex3D), nullptr});
@@ -388,6 +407,15 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                 world.add_component<Position>(b, Position{{state.player_x, 0.0f, kPlayerZ - 0.8f}});
                 world.add_component<Velocity>(b, Velocity{{0.0f, 0.0f, -kBulletSpeed}});
                 world.add_component<BulletTag>(b, BulletTag{});
+                vyro::BurstParams muzzle;
+                muzzle.origin = {state.player_x, 0.9f, kPlayerZ - 0.8f};
+                muzzle.base_velocity = {0.0f, 0.2f, -6.0f};
+                muzzle.speed = 2.2f;
+                muzzle.lifetime = 0.18f;
+                muzzle.size = 0.14f;
+                muzzle.color = {1.0f, 0.85f, 0.35f};
+                muzzle.count = 14;
+                particles.burst(muzzle);
             }
 
             // ── Enemy spawning (difficulty ramps with score) ─────────
@@ -456,6 +484,18 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                     if (sound_on) {
                         audio.play(sfx_groan, 0.9f);
                     }
+                    {
+                        const auto* zp = world.get_component<Position>(e);
+                        vyro::BurstParams blood;
+                        blood.origin = zp != nullptr ? vyro::Vec3{zp->value.x, 0.9f, zp->value.z}
+                                                     : vyro::Vec3{};
+                        blood.speed = 4.0f;
+                        blood.lifetime = 0.6f;
+                        blood.size = 0.16f;
+                        blood.color = {0.7f, 0.05f, 0.07f};
+                        blood.count = 28;
+                        particles.burst(blood);
+                    }
                     world.add_component<DyingTag>(e, DyingTag{});
                     if (auto* v = world.get_component<Velocity>(e)) {
                         v->value = {};
@@ -484,6 +524,9 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                 VYRO_WARN("Game", "GAME OVER — score {} (press R to restart)", state.score);
             }
         }
+
+        // Particles age even after game over so the last bursts finish.
+        particles.update(dt);
 
         // ── Render ───────────────────────────────────────────────────
         device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
@@ -531,6 +574,29 @@ void main(){ FragColor=vec4(vColor,1.0); })";
             draw_mesh(bullet,
                       vyro::Mat4::translation({p.value.x, 0.9f, p.value.z}), white_tex);
         });
+
+        // Particles: billboard quads facing the camera (V4.1).
+        if (particles.alive_count() > 0) {
+            const vyro::Vec3 eye{0.0f, 4.5f, kPlayerZ + 6.5f};
+            const vyro::Vec3 target{0.0f, 0.0f, kPlayerZ - 8.0f};
+            const vyro::Vec3 fwd = vyro::normalize(target - eye);
+            const vyro::Vec3 cam_right = vyro::normalize(vyro::cross(fwd, {0, 1, 0}));
+            const vyro::Vec3 cam_up = vyro::cross(cam_right, fwd);
+            part_verts.clear();
+            particles.build_quads(cam_right, cam_up, part_verts);
+            if (part_verts.size() > kPartMaxVerts) {
+                part_verts.resize(kPartMaxVerts);
+            }
+            device.update_buffer(part_vbo, part_verts.data(),
+                                 part_verts.size() * sizeof(vyro::Vertex3D));
+            device.set_uniform_mat4(part_shader, "u_vp", camera.view_projection());
+            vyro::DrawCommand pcmd;
+            pcmd.shader = part_shader;
+            pcmd.vertex_buffer = part_vbo;
+            pcmd.vertex_count = static_cast<vyro::u32>(part_verts.size());
+            pcmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+            device.draw(pcmd);
+        }
 
         // ── On-screen HUD (V3.4): score, wave, hearts, game over ─────
         hud_verts.clear();
