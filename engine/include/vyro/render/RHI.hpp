@@ -62,6 +62,11 @@ struct ShaderHandle {
     [[nodiscard]] bool valid() const { return id != 0; }
     friend bool operator==(ShaderHandle a, ShaderHandle b) { return a.id == b.id; }
 };
+struct RenderTargetHandle {
+    u32 id = 0;
+    [[nodiscard]] bool valid() const { return id != 0; }
+    friend bool operator==(RenderTargetHandle a, RenderTargetHandle b) { return a.id == b.id; }
+};
 
 // ── Resource descriptors ─────────────────────────────────────────────
 struct BufferDesc {
@@ -80,6 +85,14 @@ struct TextureDesc {
 struct ShaderDesc {
     const char* vertex_source = nullptr;
     const char* fragment_source = nullptr;
+};
+
+// An offscreen render target: a color texture (+ depth) the scene draws into,
+// so post-processing (bloom/tonemap) can sample the rendered frame.
+struct RenderTargetDesc {
+    u32 width = 0;
+    u32 height = 0;
+    bool hdr = true; // true -> RGBA16F float color for HDR; false -> RGBA8
 };
 
 // A single draw submission.
@@ -117,6 +130,18 @@ public:
     virtual void clear(Vec4 color) = 0;
     virtual void draw(const DrawCommand& command) = 0;
     virtual void end_frame() = 0;
+
+    // ── Offscreen render targets (V5.1) ──────────────────────────────
+    // Default no-ops so backends without RTT support (Null, Vulkan-stub) keep
+    // compiling; the OpenGL backend overrides them. Binding an invalid handle
+    // restores the default framebuffer (the window).
+    [[nodiscard]] virtual RenderTargetHandle create_render_target(const RenderTargetDesc&)
+    {
+        return {};
+    }
+    virtual void destroy_render_target(RenderTargetHandle) {}
+    virtual void bind_render_target(RenderTargetHandle) {}
+    [[nodiscard]] virtual TextureHandle render_target_texture(RenderTargetHandle) { return {}; }
 };
 
 } // namespace vyro
