@@ -48,6 +48,10 @@ profiler. See the
 [v6.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v6.0.0).
 Full plan: [docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
 
+**Now in development: VyroEngine 7.0** — the gameplay-depth era: varied horde
+animation, multiple enemy and weapon types, spatial audio, and real objectives.
+Full plan: [docs/ROADMAP_V7.md](docs/ROADMAP_V7.md).
+
 ---
 
 ## Games built on VyroEngine
