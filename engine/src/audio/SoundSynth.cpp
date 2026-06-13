@@ -65,6 +65,34 @@ std::vector<f32> hit(f32 seconds)
     return out;
 }
 
+std::vector<f32> music_loop(f32 bpm, u32 bars)
+{
+    const f32 beat = 60.0f / bpm;                  // seconds per beat
+    const u32 beats = bars * 4;                    // 4/4 time
+    const usize n = static_cast<usize>(static_cast<f32>(beats) * beat * kSampleRate);
+    std::vector<f32> out(n);
+
+    // A minor-key bass riff (one note per beat) with a soft arpeggio on top.
+    const f32 bass[8] = {55.0f, 55.0f, 65.41f, 49.0f, 55.0f, 73.42f, 65.41f, 49.0f}; // A1..
+    const f32 arp[4] = {220.0f, 261.63f, 329.63f, 261.63f}; // A3 C4 E4 C4
+
+    for (usize i = 0; i < n; ++i) {
+        const f32 t = static_cast<f32>(i) / kSampleRate;
+        const f32 beat_pos = t / beat;
+        const u32 beat_idx = static_cast<u32>(beat_pos) % 8;
+        const f32 beat_frac = beat_pos - std::floor(beat_pos);
+
+        // Plucky envelope per beat.
+        const f32 env = std::exp(-beat_frac * 3.0f);
+        const f32 b = std::sin(kTau * bass[beat_idx] * t)
+                      + 0.4f * std::sin(kTau * bass[beat_idx] * 2.0f * t);
+        const f32 a = std::sin(kTau * arp[static_cast<u32>(beat_pos * 2.0f) % 4] * t);
+
+        out[i] = 0.32f * b * env + 0.12f * a * std::exp(-beat_frac * 6.0f);
+    }
+    return out;
+}
+
 f32 peak(const std::vector<f32>& samples)
 {
     f32 best = 0.0f;

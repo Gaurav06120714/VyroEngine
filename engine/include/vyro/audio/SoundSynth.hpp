@@ -20,6 +20,10 @@ inline constexpr u32 kSampleRate = 44100;
 // A quick descending blip (player hit / bite).
 [[nodiscard]] std::vector<f32> hit(f32 seconds = 0.25f);
 
+// A seamless, loopable dark synth bass/arpeggio bed for background music.
+// The returned buffer is an exact number of beats so it loops cleanly.
+[[nodiscard]] std::vector<f32> music_loop(f32 bpm = 96.0f, u32 bars = 4);
+
 // Peak absolute amplitude of a buffer (test/inspection helper).
 [[nodiscard]] f32 peak(const std::vector<f32>& samples);
 
