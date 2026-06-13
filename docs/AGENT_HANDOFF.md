@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 54 test suites, all green
+ctest --test-dir build              # 55 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -142,7 +142,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ v6.0.0 | done — version bumped to 6.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V6 complete.** | v6.0.0 |
 | ✅ V7.1 Varied Horde Animation | done — `CycleVariation.hpp`; horde animates out of lockstep across K instanced phase buckets. | v6.1.0 |
 | ✅ V7.2 Enemy Variety | done — `weighted_index` + walker/runner/brute archetypes (speed/health/scale/score). | v6.2.0 |
-| **▶ V7.3 Weapons & Damage** | **DO THIS NEXT** — weapon model (fire rate/spread/pellets/damage/reload); pistol/rifle/shotgun loadouts; enemies take weapon damage. See docs/ROADMAP_V7.md. | v6.3.0 |
+| ✅ V7.3 Weapons & Damage | done — `game/Weapon.hpp`; pistol/rifle/shotgun loadouts, per-weapon damage, reload. | v6.3.0 |
+| **▶ V7.4 Spatial Audio Mix** | **DO THIS NEXT** — positional SFX: per-source pan + distance attenuation through a small mixer. Builds on the V4.2 audio backend. See docs/ROADMAP_V7.md. | v6.4.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -212,6 +213,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 54 test suites, all green in Release.
-- Latest tag: **v6.2.0** (V7.2 enemy variety complete).
-- **Next action: implement V7.3 Weapons & Damage** (see docs/ROADMAP_V7.md).
+- 55 test suites, all green in Release.
+- Latest tag: **v6.3.0** (V7.3 weapons & damage complete).
+- **Next action: implement V7.4 Spatial Audio Mix** (see docs/ROADMAP_V7.md).
