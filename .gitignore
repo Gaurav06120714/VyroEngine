@@ -28,3 +28,7 @@ compile_commands.json
 *.log
 __pycache__/
 *.pyc
+
+# Compiled shaders and runtime caches
+*.spv
+imgui.ini
