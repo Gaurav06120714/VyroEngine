@@ -105,7 +105,7 @@ Each major version is released on GitHub with a packaged tarball.
   - **v4.5.0** ✅ V5.5 GPU-Driven Rendering (`Batch`; single-call horde)
   - **v5.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
 
-> Tag scheme note: v4 phase tags were numbered `v3.1.0`…`v3.5.0` (continuing the
+> Tag scheme note: each version's phase tags continue the patch series one major behind (V4=v3.x, V5=v4.x, V6=v5.x); the umbrella release matches the major (v4.0.0, v5.0.0, v6.0.0). V7 phases will be v6.1.0..v6.5.0, release v7.0.0.
 > patch series), with the umbrella release at `v4.0.0`. V5 follows the same
 > pattern: phases `v4.1.0`…`v4.5.0`, umbrella release `v5.0.0`. See README.
 
@@ -132,7 +132,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V6.3 Networked Co-op Gameplay | done — `CoopState.hpp` shares score/wave/hp/horde from an authoritative host; joiner stops spawning and renders the host horde (instanced) + score. | v5.3.0 |
 | ✅ V6.4 Level & Obstacle Pipeline | done — `ai::avoid_obstacles` + pillars that render, shadow, block the soldier, and divert the horde. | v5.4.0 |
 | ✅ V6.5 Profiling & Optimization | done — `FrameStats` EMA + on-screen FPS/ms readout and frame-time graph; skinning profiled via ScopedTimer. | v5.5.0 |
-| **▶ v6.0.0** | **DO THIS NEXT** — umbrella release: bump version to 6.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v6.0.0 |
+| ✅ v6.0.0 | done — version bumped to 6.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V6 complete.** | v6.0.0 |
+| **▶ V7 (TBD)** | **SCOPE NEXT** — V6 (production-grade) shipped. Candidate V7 themes: skinned-mesh GPU instancing (per-instance skinning), a SceneSerializer-driven level editor, gameplay depth (weapons/enemy types/objectives), or audio mix/spatialization. Write `docs/ROADMAP_V7.md` before starting. | v6.1.0+ |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -203,5 +204,5 @@ work into the game and screenshot the result).
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 52 test suites, all green in Release.
-- Latest tag: **v5.5.0** (V6.5 profiling complete; v6.0.0 release next).
-- **Next action: cut the v6.0.0 umbrella release** (version bump + cpack + GitHub release).
+- Latest tag: **v6.0.0** (V6 umbrella release; V6 complete).
+- **Next action: scope V7** (see §4) — write docs/ROADMAP_V7.md first.
