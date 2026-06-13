@@ -17,6 +17,7 @@
 #include "vyro/assets/SkinnedModel.hpp"
 #include "vyro/audio/AudioDevice.hpp"
 #include "vyro/audio/AudioFile.hpp"
+#include "vyro/audio/Spatial.hpp"
 #include "vyro/audio/SoundSynth.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
@@ -852,8 +853,14 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             });
             for (const auto e : shot) {
                 if (!world.has_component<DyingTag>(e)) {
+                    const auto* zpos = world.get_component<Position>(e);
                     if (sound_on) {
-                        audio.play(sfx_groan, 0.9f);
+                        // Distance-attenuated death groan from the soldier (V7.4).
+                        const vyro::Vec3 listener{state.player_x, 0.0f, kPlayerZ};
+                        const vyro::f32 dist =
+                            zpos != nullptr ? vyro::length(zpos->value - listener) : 0.0f;
+                        const vyro::f32 gain = 0.9f * vyro::audio::attenuation(dist, 3.0f, 34.0f);
+                        audio.play(sfx_groan, gain);
                     }
                     {
                         const auto* zp = world.get_component<Position>(e);
