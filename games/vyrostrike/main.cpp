@@ -14,6 +14,7 @@
 #include "vyro/assets/ObjLoader.hpp"
 #include "vyro/assets/SkinnedModel.hpp"
 #include "vyro/audio/AudioDevice.hpp"
+#include "vyro/audio/AudioFile.hpp"
 #include "vyro/audio/SoundSynth.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/Log.hpp"
@@ -189,6 +190,23 @@ int main()
     const auto sfx_shot = vyro::synth::gunshot();
     const auto sfx_groan = vyro::synth::groan();
     const auto sfx_hit = vyro::synth::hit();
+
+    // Background music: load a file if present, else a synthesized loop (V4.2).
+    if (sound_on) {
+        std::vector<vyro::f32> music;
+        for (const char* mp : {"assets/audio/music.wav", "../assets/audio/music.wav",
+                               "assets/audio/music.mp3", "../assets/audio/music.mp3"}) {
+            if (auto loaded = vyro::load_audio_file(mp); loaded.has_value()) {
+                VYRO_INFO("Game", "music from '{}'", mp);
+                music = std::move(loaded.value());
+                break;
+            }
+        }
+        if (music.empty()) {
+            music = vyro::synth::music_loop(96.0f, 4);
+        }
+        audio.play_looping(music, 0.35f);
+    }
 
     // ── Shader (same textured/lit pipeline as the viewer) ────────────
     const char* vs = R"(#version 330 core
