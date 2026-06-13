@@ -42,6 +42,10 @@ public:
     void set_uniform_mat4(ShaderHandle shader, const char* name, const Mat4& value);
     void set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 value);
     void set_uniform_float(ShaderHandle shader, const char* name, f32 value);
+    void set_uniform_int(ShaderHandle shader, const char* name, i32 value);
+
+    // Bind a texture to an explicit sampler unit (e.g. a shadow map on unit 1).
+    void bind_texture(TextureHandle handle, u32 unit);
 
     // Toggle depth testing (HUD/overlay passes draw with it off).
     void set_depth_test(bool enabled);

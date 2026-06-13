@@ -340,4 +340,28 @@ void OpenGLDevice::set_uniform_float(ShaderHandle shader, const char* name, f32 
     }
 }
 
+void OpenGLDevice::set_uniform_int(ShaderHandle shader, const char* name, i32 value)
+{
+    const auto it = m_programs.find(shader.id);
+    if (it == m_programs.end()) {
+        return;
+    }
+    glUseProgram(it->second);
+    const GLint loc = glGetUniformLocation(it->second, name);
+    if (loc >= 0) {
+        glUniform1i(loc, value);
+    }
+}
+
+void OpenGLDevice::bind_texture(TextureHandle handle, u32 unit)
+{
+    const auto it = m_textures.find(handle.id);
+    if (it == m_textures.end()) {
+        return;
+    }
+    glActiveTexture(GL_TEXTURE0 + unit);
+    glBindTexture(GL_TEXTURE_2D, it->second);
+    glActiveTexture(GL_TEXTURE0);
+}
+
 } // namespace vyro
