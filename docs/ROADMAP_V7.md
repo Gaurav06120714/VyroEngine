@@ -16,7 +16,7 @@ then builds gameplay systems that are mostly headless-testable engine logic.
 | ✅ V7.2 — Enemy Variety | done — `core/Random.hpp` `weighted_index` + walker/runner/brute archetypes with per-type speed/health/scale/score; brutes take multiple hits, runners are faster. | v6.2.0 |
 | ✅ V7.3 — Weapons & Damage | done — `game/Weapon.hpp` (fire rate/spread/pellets/damage/reload); pistol/rifle/shotgun on keys 1/2/3, bullets carry damage, HUD shows weapon/ammo. | v6.3.0 |
 | ✅ V7.4 — Spatial Audio Mix | done — `audio/Spatial.hpp` (distance attenuation + stereo pan); the game distance-attenuates death groans from the soldier. (Pan is computed/tested for a future stereo device; the current device is mono gain.) | v6.4.0 |
-| V7.5 — Objectives & Game Flow | Timed/target waves with win + lose conditions, an intermission/results screen, and a clear game-state machine — not just "survive forever". | v6.5.0 |
+| ✅ V7.5 — Objectives & Game Flow | done — `game/GameFlow.hpp` (wave kill targets, intermission, victory/defeat); HUD shows wave x/total + kill objective, VICTORY/DEFEAT screens. | v6.5.0 |
 | v7.0.0 release | All of the above stabilized + packaged (`cpack` tarball + GitHub release) | v7.0.0 |
 
 ## Per-phase procedure (unchanged — see AGENT_HANDOFF §4)

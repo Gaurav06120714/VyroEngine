@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 56 test suites, all green
+ctest --test-dir build              # 57 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -144,7 +144,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V7.2 Enemy Variety | done — `weighted_index` + walker/runner/brute archetypes (speed/health/scale/score). | v6.2.0 |
 | ✅ V7.3 Weapons & Damage | done — `game/Weapon.hpp`; pistol/rifle/shotgun loadouts, per-weapon damage, reload. | v6.3.0 |
 | ✅ V7.4 Spatial Audio Mix | done — `audio/Spatial.hpp`; distance-attenuated SFX (mono device; pan ready for stereo). | v6.4.0 |
-| **▶ V7.5 Objectives & Game Flow** | **DO THIS NEXT** — timed/target waves with win+lose conditions, intermission/results screen, a clear game-state machine. Then the **v7.0.0** release. See docs/ROADMAP_V7.md. | v6.5.0 |
+| ✅ V7.5 Objectives & Game Flow | done — `game/GameFlow.hpp`; wave objectives, intermissions, victory/defeat. | v6.5.0 |
+| **▶ v7.0.0** | **DO THIS NEXT** — umbrella release: bump version to 7.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v7.0.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -214,6 +215,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 56 test suites, all green in Release.
-- Latest tag: **v6.4.0** (V7.4 spatial audio complete).
-- **Next action: implement V7.5 Objectives & Game Flow** (see docs/ROADMAP_V7.md).
+- 57 test suites, all green in Release.
+- Latest tag: **v6.5.0** (V7.5 objectives complete; v7.0.0 release next).
+- **Next action: cut the v7.0.0 umbrella release** (version bump + cpack + GitHub release).
