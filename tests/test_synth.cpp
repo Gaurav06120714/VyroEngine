@@ -37,5 +37,14 @@ int main()
         suite.check(synth::peak(a) > 0.3f, "hit is audible");
     }
 
+    // Music loop: correct length for the tempo and audible (V4.2).
+    {
+        const auto m = synth::music_loop(120.0f, 2);   // 2 bars at 120 bpm
+        const usize expected = static_cast<usize>(2 * 4 * (60.0f / 120.0f) * synth::kSampleRate);
+        suite.check(m.size() == expected, "music length matches tempo/bars");
+        suite.check(synth::peak(m) > 0.1f, "music is audible");
+        suite.check(synth::peak(m) <= 1.0f, "music does not clip");
+    }
+
     return suite.summary();
 }
