@@ -257,4 +257,17 @@ void OpenGLDevice::set_uniform_vec3(ShaderHandle shader, const char* name, Vec3 
     }
 }
 
+void OpenGLDevice::set_uniform_float(ShaderHandle shader, const char* name, f32 value)
+{
+    const auto it = m_programs.find(shader.id);
+    if (it == m_programs.end()) {
+        return;
+    }
+    glUseProgram(it->second);
+    const GLint loc = glGetUniformLocation(it->second, name);
+    if (loc >= 0) {
+        glUniform1f(loc, value);
+    }
+}
+
 } // namespace vyro
