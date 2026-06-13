@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 51 test suites, all green
+ctest --test-dir build              # 52 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -131,7 +131,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V6.2 Depth-Texture RTT & Soft Shadows | done — depth-texture RTT (`depth_texture` desc flag + GL depth FBO); shadow pass uses it with `shadows::slope_scaled_bias` + 5x5 PCF. | v5.2.0 |
 | ✅ V6.3 Networked Co-op Gameplay | done — `CoopState.hpp` shares score/wave/hp/horde from an authoritative host; joiner stops spawning and renders the host horde (instanced) + score. | v5.3.0 |
 | ✅ V6.4 Level & Obstacle Pipeline | done — `ai::avoid_obstacles` + pillars that render, shadow, block the soldier, and divert the horde. | v5.4.0 |
-| **▶ V6.5 Profiling & Optimization** | **DO THIS NEXT** — wire `core/Profiler` into the frame with an on-screen frame-time/draw-call graph, set a budget, optimize hot paths. Then the **v6.0.0** umbrella release. | v5.5.0 |
+| ✅ V6.5 Profiling & Optimization | done — `FrameStats` EMA + on-screen FPS/ms readout and frame-time graph; skinning profiled via ScopedTimer. | v5.5.0 |
+| **▶ v6.0.0** | **DO THIS NEXT** — umbrella release: bump version to 6.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v6.0.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -201,6 +202,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 51 test suites, all green in Release.
-- Latest tag: **v5.4.0** (V6.4 level obstacles complete).
-- **Next action: implement V6.5 Profiling & Optimization, then the v6.0.0 release** (see §4).
+- 52 test suites, all green in Release.
+- Latest tag: **v5.5.0** (V6.5 profiling complete; v6.0.0 release next).
+- **Next action: cut the v6.0.0 umbrella release** (version bump + cpack + GitHub release).
