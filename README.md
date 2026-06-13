@@ -53,8 +53,8 @@ GPU-driven batching to draw it all fast. Full plan:
 |----------|------|--------|-----|
 | V5.1 — Render Targets & HDR Bloom | Offscreen render targets in the RHI; HDR scene + real bloom/ACES tonemap pass | ✅ Complete | v4.1.0 |
 | V5.2 — Real-Time Shadows | Directional shadow-map pass: the soldier and horde cast PCF shadows on the ground | ✅ Complete | v4.2.0 |
-| V5.3 — Larger Worlds & Culling | Chunked/streamed scenes + frustum culling | 🔧 Next | v4.3.0 |
-| V5.4 — Gameplay AI | Steering/flocking horde + behavior state machine | 📋 Planned | v4.4.0 |
+| V5.3 — Larger Worlds & Culling | Tiled ground world + Gribb-Hartmann frustum culling of tiles/entities | ✅ Complete | v4.3.0 |
+| V5.4 — Gameplay AI | Steering/flocking horde + behavior state machine | 🔧 Next | v4.4.0 |
 | V5.5 — GPU-Driven Rendering | Instanced horde rendering + draw-call batching | 📋 Planned | v4.5.0 |
 | **v5.0.0** | All of the above stabilized + released | 📋 Planned | v5.0.0 |
 
