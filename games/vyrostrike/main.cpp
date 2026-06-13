@@ -12,6 +12,7 @@
 #include "vyro/assets/Mesh.hpp"
 #include "vyro/assets/GlbLoader.hpp"
 #include "vyro/assets/ObjLoader.hpp"
+#include "vyro/ai/Steering.hpp"
 #include "vyro/assets/SkinnedModel.hpp"
 #include "vyro/audio/AudioDevice.hpp"
 #include "vyro/audio/AudioFile.hpp"
@@ -603,11 +604,24 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 world.add_component<EnemyTag>(e, EnemyTag{});
             }
 
-            // Zombies home toward the soldier (and will face their velocity).
+            // Zombie AI (V5.4): seek the soldier while spreading from the pack
+            // (separation), so the horde fans out and surrounds instead of
+            // collapsing into a single file.
+            std::vector<vyro::Vec3> horde_positions;
+            world.view<Position, EnemyTag>().for_each(
+                [&](Position& p, EnemyTag&) { horde_positions.push_back(p.value); });
+            const vyro::Vec3 soldier_pos{state.player_x, 0.0f, kPlayerZ};
             world.view<Position, Velocity, EnemyTag>().for_each(
                 [&](Position& p, Velocity& v, EnemyTag&) {
-                    const vyro::f32 dx = state.player_x - p.value.x;
-                    v.value.x = std::clamp(dx * 0.5f, -1.6f, 1.6f);
+                    const vyro::f32 dist = vyro::length(soldier_pos - p.value);
+                    const vyro::ai::ZombieState st = vyro::ai::select_state(dist, 60.0f, 1.8f);
+                    if (st == vyro::ai::ZombieState::Idle) {
+                        v.value = {};
+                        return;
+                    }
+                    v.value = vyro::ai::horde_velocity(p.value, soldier_pos, horde_positions,
+                                                       state.enemy_speed, 2.5f, 1.5f);
+                    v.value.y = 0.0f;
                 });
 
             // ── Movement system ──────────────────────────────────────
