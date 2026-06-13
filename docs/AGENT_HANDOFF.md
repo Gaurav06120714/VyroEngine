@@ -104,14 +104,21 @@ Each major version is released on GitHub with a packaged tarball.
   - **v4.4.0** ✅ V5.4 Gameplay AI (`ai::Steering`; seek + separation horde)
   - **v4.5.0** ✅ V5.5 GPU-Driven Rendering (`Batch`; single-call horde)
   - **v5.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
+- **v6.0.0** — production-grade era (released):
+  - **v5.1.0** ✅ V6.1 GPU Hardware Instancing (`draw_instanced`; one instanced horde draw)
+  - **v5.2.0** ✅ V6.2 Depth-Texture RTT & Soft Shadows (depth-texture shadow map + PCF)
+  - **v5.3.0** ✅ V6.3 Networked Co-op Gameplay (`CoopState`; host-authoritative shared world)
+  - **v5.4.0** ✅ V6.4 Level & Obstacle Pipeline (`ai::avoid_obstacles`; pillars)
+  - **v5.5.0** ✅ V6.5 Profiling & Optimization (`FrameStats`; on-screen frame graph)
+  - **v6.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
 
-> Tag scheme note: each version's phase tags continue the patch series one major behind (V4=v3.x, V5=v4.x, V6=v5.x); the umbrella release matches the major (v4.0.0, v5.0.0, v6.0.0). V7 phases will be v6.1.0..v6.5.0, release v7.0.0.
-> patch series), with the umbrella release at `v4.0.0`. V5 follows the same
-> pattern: phases `v4.1.0`…`v4.5.0`, umbrella release `v5.0.0`. See README.
+> Tag scheme note: each version's phase tags continue the patch series one major
+> behind (V4=`v3.x`, V5=`v4.x`, V6=`v5.x`); the umbrella release matches the major
+> (`v4.0.0`, `v5.0.0`, `v6.0.0`). V7 phases will be `v6.1.0`…`v6.5.0`, release `v7.0.0`.
 
 ---
 
-## 4. WHAT TO DO NEXT  (V4/V5 done; V6 next — docs/ROADMAP_V6.md)
+## 4. WHAT TO DO NEXT  (V4/V5/V6 done; V7 next — write docs/ROADMAP_V7.md)
 
 | Phase | Goal | Tag |
 |-------|------|-----|
