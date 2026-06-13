@@ -52,5 +52,19 @@ int main()
         suite.check(length(v) <= 2.0f + 1e-3f, "horde velocity clamped to max speed");
     }
 
+    // Obstacle avoidance pushes away from a nearby pillar on the +x side.
+    {
+        const std::vector<ai::Obstacle> obstacles{ai::Obstacle{Vec3{2, 0, 0}, 1.0f}};
+        const Vec3 push = ai::avoid_obstacles(Vec3{0, 0, 0}, obstacles, 2.0f, 1.0f);
+        suite.check(push.x < 0.0f, "avoidance pushes away from the obstacle");
+    }
+
+    // An obstacle beyond the margin is ignored.
+    {
+        const std::vector<ai::Obstacle> obstacles{ai::Obstacle{Vec3{50, 0, 0}, 1.0f}};
+        const Vec3 push = ai::avoid_obstacles(Vec3{0, 0, 0}, obstacles, 2.0f, 1.0f);
+        suite.check(std::fabs(length(push)) < 1e-4f, "distant obstacle is ignored");
+    }
+
     return suite.summary();
 }
