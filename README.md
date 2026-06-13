@@ -48,8 +48,10 @@ profiler. See the
 [v6.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v6.0.0).
 Full plan: [docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
 
-**Now in development: VyroEngine 7.0** — the gameplay-depth era: varied horde
-animation, multiple enemy and weapon types, spatial audio, and real objectives.
+**🎉 VyroEngine 7.0 is complete and released** — the gameplay-depth era: varied
+horde animation, walker/runner/brute enemies, pistol/rifle/shotgun weapons,
+spatial audio, and wave objectives with victory/defeat. See the
+[v7.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v7.0.0).
 Full plan: [docs/ROADMAP_V7.md](docs/ROADMAP_V7.md).
 
 ---
