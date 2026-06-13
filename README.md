@@ -37,8 +37,8 @@ Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 | V4.1 — Particle System | Pooled emitters + GPU quads: muzzle flashes and blood bursts | ✅ Complete | v3.1.0 |
 | V4.2 — Audio Files & Music | WAV/MP3/FLAC decoding + looping background music | ✅ Complete | v3.2.0 |
 | V4.3 — Animation Blending | Cross-fade walk → bite on the horde by proximity (`SkinnedModel::pose_blend`) | ✅ Complete | v3.3.0 |
-| V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP | 🔧 Next | v3.4.0 |
-| V4.5 — Camera & Post-FX | Follow camera, screen shake, tonemap/bloom pass | 📋 Planned | v3.5.0 |
+| V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP (`CoopLink` peer sync) | ✅ Complete | v3.4.0 |
+| V4.5 — Camera & Post-FX | Follow camera, screen shake, tonemap/bloom pass | 🔧 Next | v3.5.0 |
 | **v4.0.0** | All of the above stabilized | 📋 Planned | v4.0.0 |
 
 ---
