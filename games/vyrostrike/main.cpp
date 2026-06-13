@@ -29,6 +29,7 @@
 #include "vyro/render/CameraRig.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
 #include "vyro/render/ParticleSystem.hpp"
+#include "vyro/render/PostProcess.hpp"
 #include "vyro/render/TextGeometry.hpp"
 
 #include <GLFW/glfw3.h>
@@ -213,21 +214,45 @@ int main()
         audio.play_looping(music, 0.35f);
     }
 
-    // ── Shader (same textured/lit pipeline as the viewer) ────────────
+    // ── Shader: textured/lit + shadow-mapped (V5.2) ──────────────────
     const char* vs = R"(#version 330 core
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
 layout(location=2) in vec2 aUV;  layout(location=3) in vec3 aColor;
-uniform mat4 u_mvp; uniform mat4 u_model;
-out vec3 vNormal; out vec3 vColor; out vec2 vUV;
+uniform mat4 u_mvp; uniform mat4 u_model; uniform mat4 u_lightVP;
+out vec3 vNormal; out vec3 vColor; out vec2 vUV; out vec4 vLightPos;
 void main(){ gl_Position=u_mvp*vec4(aPos,1.0); vNormal=mat3(u_model)*aNormal;
-vColor=aColor; vUV=aUV; })";
+vColor=aColor; vUV=aUV; vLightPos=u_lightVP*u_model*vec4(aPos,1.0); })";
     const char* fs = R"(#version 330 core
-in vec3 vNormal; in vec3 vColor; in vec2 vUV; out vec4 FragColor;
-uniform vec3 u_lightDir; uniform sampler2D u_texture;
+in vec3 vNormal; in vec3 vColor; in vec2 vUV; in vec4 vLightPos; out vec4 FragColor;
+uniform vec3 u_lightDir; uniform sampler2D u_texture; uniform sampler2D u_shadowMap;
+uniform int u_shadowOn;
+float shadow_factor(){
+  if(u_shadowOn==0) return 0.0;
+  vec3 p = vLightPos.xyz / vLightPos.w * 0.5 + 0.5;
+  if(p.z>1.0 || p.x<0.0 || p.x>1.0 || p.y<0.0 || p.y>1.0) return 0.0;
+  float bias=0.0028; float sm=0.0; vec2 ts=1.0/vec2(textureSize(u_shadowMap,0));
+  for(int x=-1;x<=1;++x) for(int y=-1;y<=1;++y){
+    float closest=texture(u_shadowMap,p.xy+vec2(x,y)*ts).r;
+    sm += (p.z-bias>closest)?1.0:0.0;
+  }
+  return sm/9.0;
+}
 void main(){ float d=max(dot(normalize(vNormal),normalize(-u_lightDir)),0.0);
 vec3 base=texture(u_texture,vUV).rgb*vColor;
-FragColor=vec4(base*(0.35+0.65*d),1.0); })";
+float lit=(0.35+0.65*d)*(1.0-0.6*shadow_factor());
+FragColor=vec4(base*lit,1.0); })";
     const auto shader = device.create_shader({vs, fs});
+
+    // Depth-only shader for the shadow pass: write window-space depth to color.
+    const char* shadow_vs = R"(#version 330 core
+layout(location=0) in vec3 aPos;
+uniform mat4 u_mvp;
+void main(){ gl_Position=u_mvp*vec4(aPos,1.0); })";
+    const char* shadow_fs = R"(#version 330 core
+out vec4 FragColor;
+void main(){ FragColor=vec4(gl_FragCoord.z,0.0,0.0,1.0); })";
+    const auto shadow_shader = device.create_shader({shadow_vs, shadow_fs});
+    const auto shadow_rt = device.create_render_target({2048, 2048, /*hdr*/ true});
 
     // ── HUD: unlit screen-space text pipeline ────────────────────────
     const char* hud_vs = R"(#version 330 core
@@ -457,6 +482,19 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         device.draw(cmd);
     };
 
+    // Shadow pass: draw a mesh's depth from the light's POV (V5.2).
+    vyro::Mat4 light_vp = vyro::Mat4::identity();
+    auto draw_shadow = [&](const GpuMesh& m, const vyro::Mat4& model) {
+        device.set_uniform_mat4(shadow_shader, "u_mvp", light_vp * model);
+        vyro::DrawCommand cmd;
+        cmd.shader = shadow_shader;
+        cmd.vertex_buffer = m.vbo;
+        cmd.index_buffer = m.ibo;
+        cmd.index_count = m.index_count;
+        cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+        device.draw(cmd);
+    };
+
     // ── Co-op (V4.4) ─────────────────────────────────────────────────
     // VYRO_COOP=host|join brings a second networked soldier into the arena
     // over UDP. Both peers run the same CoopLink: publish my soldier, replicate
@@ -670,12 +708,52 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         const vyro::Vec3 cam_pan{cam_focus_x + shake_off.x, shake_off.y, 0.0f};
         camera.set_view(base_eye + cam_pan, base_target + cam_pan);
 
+        // ── Shadow depth pass (V5.2): occluders from the sun's POV ───
+        const vyro::Vec3 sun_dir{-0.4f, -1.0f, -0.3f};
+        light_vp = vyro::shadows::light_view_projection(
+            sun_dir, {state.player_x, 0.0f, kPlayerZ - 2.0f}, 20.0f, 40.0f);
+        device.bind_render_target(shadow_rt);
+        device.set_viewport(2048, 2048);
+        device.clear({1.0f, 1.0f, 1.0f, 1.0f}); // far depth = 1
+        {
+            const vyro::Mat4 sp = vyro::Mat4::translation({state.player_x, 0.0f, kPlayerZ})
+                                  * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f) * soldier_fit;
+            draw_shadow(soldier, sp);
+            if (coop && coop->peer_connected()) {
+                const vyro::Vec3 ally = coop->peer_position();
+                draw_shadow(soldier, vyro::Mat4::translation(ally)
+                                         * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f)
+                                         * soldier_fit);
+            }
+            world.view<Position, EnemyTag>().for_each_entity(
+                [&](vyro::Entity e, Position& p, EnemyTag&) {
+                    vyro::f32 yaw = 0.0f;
+                    if (const auto* v = world.get_component<Velocity>(e)) {
+                        yaw = std::atan2(v->value.x, v->value.z);
+                    }
+                    vyro::Mat4 pose = vyro::Mat4::translation(p.value)
+                                      * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
+                    if (const auto* dying = world.get_component<DyingTag>(e)) {
+                        const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
+                        pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
+                               * vyro::Mat4::rotation({0, 1, 0}, yaw)
+                               * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
+                    }
+                    draw_shadow(zombie, pose);
+                });
+        }
+
         // ── Render scene into the offscreen HDR target (V5.1) ────────
         device.bind_render_target(scene_rt);
         device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
         device.clear(state.game_over ? vyro::Vec4{0.25f, 0.05f, 0.06f, 1.0f}
                                      : vyro::Vec4{0.05f, 0.06f, 0.10f, 1.0f});
-        device.set_uniform_vec3(shader, "u_lightDir", {-0.4f, -1.0f, -0.3f});
+        device.set_uniform_vec3(shader, "u_lightDir", sun_dir);
+        // Bind the shadow map (unit 1) and light matrix for shadow lookups.
+        device.set_uniform_mat4(shader, "u_lightVP", light_vp);
+        device.bind_texture(device.render_target_texture(shadow_rt), 1);
+        device.set_uniform_int(shader, "u_shadowMap", 1);
+        device.set_uniform_int(shader, "u_shadowOn", 1);
 
         draw_mesh(ground, vyro::Mat4::identity(), checker_tex);
 
