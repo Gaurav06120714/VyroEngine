@@ -93,6 +93,9 @@ struct RenderTargetDesc {
     u32 width = 0;
     u32 height = 0;
     bool hdr = true; // true -> RGBA16F float color for HDR; false -> RGBA8
+    // true -> a depth-only target with a sampleable depth texture (shadow maps);
+    // `render_target_texture` then returns the depth texture and `hdr` is ignored.
+    bool depth_texture = false;
 };
 
 // A single draw submission.

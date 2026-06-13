@@ -179,6 +179,38 @@ RenderTargetHandle OpenGLDevice::create_render_target(const RenderTargetDesc& de
     const auto w = static_cast<GLsizei>(desc.width);
     const auto h = static_cast<GLsizei>(desc.height);
 
+    // Depth-only target: a sampleable depth texture, no color (V6.2 shadow map).
+    if (desc.depth_texture) {
+        GLuint depth_tex = 0;
+        glGenTextures(1, &depth_tex);
+        glBindTexture(GL_TEXTURE_2D, depth_tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+        const GLfloat border[4] = {1.0f, 1.0f, 1.0f, 1.0f}; // outside the map = lit
+        glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, w, h, 0, GL_DEPTH_COMPONENT,
+                     GL_FLOAT, nullptr);
+
+        GLuint fbo = 0;
+        glGenFramebuffers(1, &fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth_tex, 0);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            VYRO_ERROR("OpenGL", "depth render target {}x{} incomplete", desc.width, desc.height);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        const u32 depth_id = m_next_id++;
+        m_textures[depth_id] = depth_tex;
+        const u32 id = m_next_id++;
+        m_render_targets[id] = GLRenderTarget{fbo, depth_id, 0, desc.width, desc.height};
+        return RenderTargetHandle{id};
+    }
+
     // Color texture: clamp + linear, NO mipmaps (an incomplete mip chain would
     // sample as black). Registered in m_textures so the post pass can sample it.
     GLuint color = 0;
