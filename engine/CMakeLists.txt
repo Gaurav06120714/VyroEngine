@@ -44,7 +44,8 @@ endif()
 # ── Optional real audio output (vyro_audio) via miniaudio ────────────
 if(VYRO_ENABLE_AUDIO)
     add_library(vyro_audio STATIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/ma/AudioDevice.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ma/AudioDevice.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ma/AudioFile.cpp)
     add_library(vyro::audio ALIAS vyro_audio)
     target_include_directories(vyro_audio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
     target_include_directories(vyro_audio SYSTEM
