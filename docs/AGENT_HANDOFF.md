@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 42 test suites, all green
+ctest --test-dir build              # 43 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -93,6 +93,8 @@ Each major version is released on GitHub with a packaged tarball.
 - **v4.x (in progress)** — juice & performance:
   - **v3.1.0** ✅ V4.1 Particle System (muzzle flashes, blood bursts)
   - **v3.2.0** ✅ V4.2 Audio Files & Music (WAV/MP3/FLAC decode + looping music)
+  - **v3.3.0** ✅ V4.3 Animation Blending (`SkinnedModel::pose_blend`; horde walk→bite)
+  - **v3.4.0** ✅ V4.4 Co-op Multiplayer (`CoopLink`; UDP 2nd soldier via `VYRO_COOP`)
 
 > Tag scheme note: v4 phase tags are numbered `v3.1.0`, `v3.2.0`… (continuing the
 > patch series); the umbrella release will be `v4.0.0`. See README for the table.
@@ -106,8 +108,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V4.1 Particle System | done | v3.1.0 |
 | ✅ V4.2 Audio Files & Music | done | v3.2.0 |
 | ✅ V4.3 Animation Blending | done — `SkinnedModel::pose_blend(clipA,tA, clipB,tB, weight, out)` blends two clips' per-node local transforms (lerp translation/scale, nlerp rotation); the game cross-fades the horde walk→bite by proximity to the soldier (see `games/vyrostrike/main.cpp`). | v3.3.0 |
-| **▶ V4.4 Co-op Multiplayer** | **DO THIS NEXT** — a 2nd networked soldier in Outbreak over the existing `UdpTransport` + `Replication` (NetServer/NetClient already exist and are tested). | v3.4.0 |
-| V4.5 Camera & Post-FX | follow camera with smoothing, screen shake on hits, a tonemap/bloom post pass (math already in `render/PostProcess.hpp`/`PBR.hpp`). | v3.5.0 |
+| ✅ V4.4 Co-op Multiplayer | done — `net/Coop.hpp` `CoopLink` runs a NetServer+NetClient over one bidirectional transport for symmetric peer sync. The game adds `VYRO_COOP=host\|join` (over `UdpTransport`) to bring a 2nd networked soldier into the arena; run two instances on localhost to see both. Default is single-player. | v3.4.0 |
+| **▶ V4.5 Camera & Post-FX** | **DO THIS NEXT** — follow camera with smoothing, screen shake on hits, a tonemap/bloom post pass (math already in `render/PostProcess.hpp`/`PBR.hpp`). | v3.5.0 |
 | v4.0.0 | stabilize + GitHub release with `cpack` tarball | v4.0.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
@@ -178,6 +180,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 42 test suites, all green in Release.
-- Latest tag: **v3.3.0** (V4.3 Animation Blending complete).
-- **Next action: implement V4.4 Co-op Multiplayer** (see §4).
+- 43 test suites, all green in Release.
+- Latest tag: **v3.4.0** (V4.4 Co-op Multiplayer complete).
+- **Next action: implement V4.5 Camera & Post-FX** (see §4).
