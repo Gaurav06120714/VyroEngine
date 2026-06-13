@@ -66,6 +66,10 @@ public:
 
     [[nodiscard]] u32 latest_sequence() const { return m_latest.sequence; }
     [[nodiscard]] usize known_entities() const { return m_latest.positions.size(); }
+    [[nodiscard]] bool has(NetEntityId id) const
+    {
+        return m_latest.positions.find(id) != m_latest.positions.end();
+    }
 
 private:
     ITransport& m_transport;
