@@ -12,7 +12,7 @@ then builds gameplay systems that are mostly headless-testable engine logic.
 
 | Phase | Goal | Tag |
 |-------|------|-----|
-| V7.1 — Varied Horde Animation | Each zombie animates at its own phase instead of in lockstep, while staying GPU-instanced: bucket instances across K skinned cycle poses (one instanced draw per bucket) and assign each zombie a stable phase from its id. | v6.1.0 |
+| ✅ V7.1 — Varied Horde Animation | done — `animation/CycleVariation.hpp` (`phase_bucket` + `bucket_time`); the horde is split across K phase buckets, each skinned at its own cycle offset and drawn as a separate instanced batch. | v6.1.0 |
 | V7.2 — Enemy Variety | Multiple enemy archetypes (walker / runner / brute) with per-type speed, health, scale and score, driven by data components — not one hard-coded zombie. | v6.2.0 |
 | V7.3 — Weapons & Damage | A weapon model: fire rate, spread, pellet count, damage and reload; pistol / rifle / shotgun loadouts the player can switch. Enemies take damage instead of dying in one hit. | v6.3.0 |
 | V7.4 — Spatial Audio Mix | Positional SFX: per-source pan and distance attenuation through a small mixer, so shots and groans come from where they happen. Builds on the V4.2 audio backend. | v6.4.0 |
