@@ -29,7 +29,10 @@ skeletal animation, animated gameplay, real audio output, on-screen text/HUD,
 and scene authoring. See the
 [v3.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v3.0.0).
 
-**Now in development: VyroEngine 4.0** — the juice & performance era.
+**🎉 VyroEngine 4.0 is complete and released** — the juice & performance era:
+particle systems, audio files & looping music, animation blending, UDP co-op,
+and a follow camera with screen shake and post-FX. See the
+[v4.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v4.0.0).
 Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 
 | V4 Phase | Goal | Status | Tag |
@@ -39,7 +42,11 @@ Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 | V4.3 — Animation Blending | Cross-fade walk → bite on the horde by proximity (`SkinnedModel::pose_blend`) | ✅ Complete | v3.3.0 |
 | V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP (`CoopLink` peer sync) | ✅ Complete | v3.4.0 |
 | V4.5 — Camera & Post-FX | Smoothed follow camera, trauma screen shake, screen-space vignette + damage flash | ✅ Complete | v3.5.0 |
-| **v4.0.0** | All of the above stabilized | 🔧 Next | v4.0.0 |
+| **v4.0.0** | All of the above stabilized + released | ✅ Complete | v4.0.0 |
+
+**Next: VyroEngine 5.0** — the rendering & worlds era (real shadows, HDR bloom,
+GPU-driven scenes, larger worlds, gameplay AI). Full plan:
+[docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
 
 ---
 
