@@ -34,6 +34,21 @@ namespace postfx {
 // Bloom threshold: keep only the component of color above `threshold`.
 [[nodiscard]] Vec3 bloom_extract(Vec3 color, f32 threshold);
 
+// Normalized 1D Gaussian weights, length 2*radius+1. sigma defaults to
+// radius/2 when zero. The weights always sum to 1 (energy-preserving).
+[[nodiscard]] std::vector<f32> gaussian_kernel(u32 radius, f32 sigma = 0.0f);
+
+// Separable Gaussian blur of a row-major RGB image (width*height), edges
+// clamped. Runs a horizontal then a vertical pass; result written in place.
+void blur_separable(std::vector<Vec3>& image, u32 width, u32 height,
+                    const std::vector<f32>& kernel);
+
+// Full bloom: extract pixels above `threshold`, blur them by `radius`, add the
+// glow back at `intensity`, then ACES tonemap to LDR. Reference (CPU) pipeline
+// that mirrors the GPU pass; deterministic and unit-tested.
+[[nodiscard]] std::vector<Vec3> apply_bloom(const std::vector<Vec3>& hdr, u32 width, u32 height,
+                                            f32 threshold, u32 radius, f32 intensity);
+
 } // namespace postfx
 
 // Ordered, toggleable effect stack (10.4). The renderer runs enabled effects

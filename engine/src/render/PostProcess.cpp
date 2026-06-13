@@ -59,6 +59,91 @@ Vec3 bloom_extract(Vec3 color, f32 threshold)
     return {cut(color.x), cut(color.y), cut(color.z)};
 }
 
+std::vector<f32> gaussian_kernel(u32 radius, f32 sigma)
+{
+    if (sigma <= 0.0f) {
+        sigma = static_cast<f32>(radius) * 0.5f;
+        if (sigma <= 0.0f) {
+            sigma = 1.0f;
+        }
+    }
+    const usize n = static_cast<usize>(radius) * 2 + 1;
+    std::vector<f32> k(n);
+    f32 sum = 0.0f;
+    for (usize i = 0; i < n; ++i) {
+        const f32 x = static_cast<f32>(i) - static_cast<f32>(radius);
+        const f32 w = std::exp(-(x * x) / (2.0f * sigma * sigma));
+        k[i] = w;
+        sum += w;
+    }
+    for (f32& w : k) {
+        w /= sum; // normalize so the weights sum to 1
+    }
+    return k;
+}
+
+namespace {
+
+// Sample with clamped edges.
+Vec3 sample_clamped(const std::vector<Vec3>& img, u32 width, u32 height, i32 x, i32 y)
+{
+    const i32 cx = std::clamp(x, 0, static_cast<i32>(width) - 1);
+    const i32 cy = std::clamp(y, 0, static_cast<i32>(height) - 1);
+    return img[static_cast<usize>(cy) * width + static_cast<usize>(cx)];
+}
+
+} // namespace
+
+void blur_separable(std::vector<Vec3>& image, u32 width, u32 height,
+                    const std::vector<f32>& kernel)
+{
+    if (image.empty() || kernel.empty() || width == 0 || height == 0) {
+        return;
+    }
+    const i32 radius = static_cast<i32>(kernel.size() / 2);
+
+    // Horizontal pass into a temp, then vertical pass back into image.
+    std::vector<Vec3> tmp(image.size());
+    for (u32 y = 0; y < height; ++y) {
+        for (u32 x = 0; x < width; ++x) {
+            Vec3 acc{};
+            for (i32 t = -radius; t <= radius; ++t) {
+                acc = acc + sample_clamped(image, width, height, static_cast<i32>(x) + t,
+                                           static_cast<i32>(y))
+                                * kernel[static_cast<usize>(t + radius)];
+            }
+            tmp[static_cast<usize>(y) * width + x] = acc;
+        }
+    }
+    for (u32 y = 0; y < height; ++y) {
+        for (u32 x = 0; x < width; ++x) {
+            Vec3 acc{};
+            for (i32 t = -radius; t <= radius; ++t) {
+                acc = acc + sample_clamped(tmp, width, height, static_cast<i32>(x),
+                                           static_cast<i32>(y) + t)
+                                * kernel[static_cast<usize>(t + radius)];
+            }
+            image[static_cast<usize>(y) * width + x] = acc;
+        }
+    }
+}
+
+std::vector<Vec3> apply_bloom(const std::vector<Vec3>& hdr, u32 width, u32 height, f32 threshold,
+                              u32 radius, f32 intensity)
+{
+    std::vector<Vec3> bright(hdr.size());
+    for (usize i = 0; i < hdr.size(); ++i) {
+        bright[i] = bloom_extract(hdr[i], threshold);
+    }
+    blur_separable(bright, width, height, gaussian_kernel(radius));
+
+    std::vector<Vec3> out(hdr.size());
+    for (usize i = 0; i < hdr.size(); ++i) {
+        out[i] = tonemap_aces(hdr[i] + bright[i] * intensity);
+    }
+    return out;
+}
+
 } // namespace postfx
 
 void PostProcessStack::add(std::string name, bool enabled)
