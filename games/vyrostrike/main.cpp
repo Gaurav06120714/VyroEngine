@@ -289,8 +289,18 @@ void main(){ FragColor=vec4(vColor,1.0); })";
             break;
         }
     }
+    // Bite clip: blended in as the horde closes on the soldier (V4.3).
+    int bite_clip = walk_clip;
+    for (vyro::usize c = 0; c < zombie_model.clips.size(); ++c) {
+        if (zombie_model.clips[c].name.find("Bite") != std::string::npos) {
+            bite_clip = static_cast<int>(c);
+            break;
+        }
+    }
     if (!zombie_model.clips.empty()) {
-        VYRO_INFO("Game", "horde animation: '{}'", zombie_model.clips[static_cast<vyro::usize>(walk_clip)].name);
+        VYRO_INFO("Game", "horde animation: walk '{}' -> bite '{}'",
+                  zombie_model.clips[static_cast<vyro::usize>(walk_clip)].name,
+                  zombie_model.clips[static_cast<vyro::usize>(bite_clip)].name);
     }
 
     const GpuMesh soldier = upload(device, soldier_model.mesh);
@@ -560,11 +570,31 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                                         * soldier_fit;
         draw_mesh(soldier, soldier_pose, soldier_tex);
 
-        // Animate the horde: sample the walk clip, skin, stream to the GPU.
+        // How close is the nearest living zombie to the soldier? The horde
+        // shares one skinned stream, so this drives a single walk->bite blend.
+        vyro::f32 nearest = 1e9f;
+        world.view<Position, EnemyTag>().for_each_entity(
+            [&](vyro::Entity e, Position& p, EnemyTag&) {
+                if (world.has_component<DyingTag>(e)) {
+                    return;
+                }
+                const vyro::f32 dx = p.value.x - state.player_x;
+                const vyro::f32 dz = p.value.z - kPlayerZ;
+                nearest = std::min(nearest, std::sqrt(dx * dx + dz * dz));
+            });
+
+        // Animate the horde: cross-fade walk->bite by proximity, skin, stream.
         if (!zombie_model.clips.empty()) {
             const float anim_t =
                 std::chrono::duration<float>(now.time_since_epoch()).count();
-            zombie_model.pose(static_cast<vyro::usize>(walk_clip), anim_t, zombie_pose);
+            // Full walk beyond kBiteFar, full bite within kBiteNear.
+            constexpr vyro::f32 kBiteNear = 1.6f;
+            constexpr vyro::f32 kBiteFar = 3.2f;
+            const vyro::f32 bite_weight =
+                std::clamp((kBiteFar - nearest) / (kBiteFar - kBiteNear), 0.0f, 1.0f);
+            zombie_model.pose_blend(static_cast<vyro::usize>(walk_clip), anim_t,
+                                    static_cast<vyro::usize>(bite_clip), anim_t, bite_weight,
+                                    zombie_pose);
             zombie_model.skin(zombie_pose, zombie_skinned);
             device.update_buffer(zombie.vbo, zombie_skinned.data(),
                                  zombie_skinned.size() * sizeof(vyro::Vertex3D));
