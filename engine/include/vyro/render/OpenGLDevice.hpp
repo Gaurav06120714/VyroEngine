@@ -33,6 +33,12 @@ public:
     void draw(const DrawCommand& command) override;
     void end_frame() override;
 
+    // GPU hardware instancing (V6.1): draw `instance_count` copies of the
+    // command's mesh, each reading a per-instance mat4 model matrix from
+    // `instance_buffer` (attribute locations 4-7, divisor 1). One draw call.
+    void draw_instanced(const DrawCommand& command, BufferHandle instance_buffer,
+                        u32 instance_count);
+
     [[nodiscard]] RenderTargetHandle create_render_target(const RenderTargetDesc& desc) override;
     void destroy_render_target(RenderTargetHandle handle) override;
     void bind_render_target(RenderTargetHandle handle) override;

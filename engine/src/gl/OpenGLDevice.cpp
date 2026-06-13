@@ -291,6 +291,57 @@ void OpenGLDevice::draw(const DrawCommand& command)
     glDrawArrays(to_gl_topology(command.topology), 0, static_cast<GLsizei>(command.vertex_count));
 }
 
+void OpenGLDevice::draw_instanced(const DrawCommand& command, BufferHandle instance_buffer,
+                                 u32 instance_count)
+{
+    const auto prog = m_programs.find(command.shader.id);
+    const auto vbo = m_buffers.find(command.vertex_buffer.id);
+    const auto inst = m_buffers.find(instance_buffer.id);
+    const auto ibo = m_buffers.find(command.index_buffer.id);
+    if (prog == m_programs.end() || vbo == m_buffers.end() || inst == m_buffers.end()
+        || ibo == m_buffers.end() || instance_count == 0) {
+        return;
+    }
+
+    ++m_draw_calls;
+    glUseProgram(prog->second);
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo->second.id);
+    set_vertex_attributes(command.vertex_format);
+
+    if (command.texture.valid()) {
+        const auto tex = m_textures.find(command.texture.id);
+        if (tex != m_textures.end()) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, tex->second);
+        }
+    }
+
+    // Per-instance mat4 model matrix as four vec4 attributes (locations 4-7),
+    // advancing once per instance (divisor 1).
+    glBindBuffer(GL_ARRAY_BUFFER, inst->second.id);
+    constexpr GLsizei mat_stride = static_cast<GLsizei>(sizeof(Mat4));
+    for (GLuint col = 0; col < 4; ++col) {
+        const GLuint loc = 4 + col;
+        glEnableVertexAttribArray(loc);
+        glVertexAttribPointer(loc, 4, GL_FLOAT, GL_FALSE, mat_stride,
+                              reinterpret_cast<void*>(sizeof(float) * 4 * col));
+        glVertexAttribDivisor(loc, 1);
+    }
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo->second.id);
+    glDrawElementsInstanced(to_gl_topology(command.topology),
+                            static_cast<GLsizei>(command.index_count), GL_UNSIGNED_INT, nullptr,
+                            static_cast<GLsizei>(instance_count));
+
+    // Reset the instance attributes so later non-instanced draws are unaffected.
+    for (GLuint col = 0; col < 4; ++col) {
+        const GLuint loc = 4 + col;
+        glVertexAttribDivisor(loc, 0);
+        glDisableVertexAttribArray(loc);
+    }
+}
+
 void OpenGLDevice::end_frame() {}
 
 void OpenGLDevice::set_depth_test(bool enabled)
