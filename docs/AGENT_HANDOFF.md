@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 43 test suites, all green
+ctest --test-dir build              # 44 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -95,6 +95,7 @@ Each major version is released on GitHub with a packaged tarball.
   - **v3.2.0** ✅ V4.2 Audio Files & Music (WAV/MP3/FLAC decode + looping music)
   - **v3.3.0** ✅ V4.3 Animation Blending (`SkinnedModel::pose_blend`; horde walk→bite)
   - **v3.4.0** ✅ V4.4 Co-op Multiplayer (`CoopLink`; UDP 2nd soldier via `VYRO_COOP`)
+  - **v3.5.0** ✅ V4.5 Camera & Post-FX (`CameraRig` follow + shake; vignette/damage-flash pass)
 
 > Tag scheme note: v4 phase tags are numbered `v3.1.0`, `v3.2.0`… (continuing the
 > patch series); the umbrella release will be `v4.0.0`. See README for the table.
@@ -109,8 +110,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V4.2 Audio Files & Music | done | v3.2.0 |
 | ✅ V4.3 Animation Blending | done — `SkinnedModel::pose_blend(clipA,tA, clipB,tB, weight, out)` blends two clips' per-node local transforms (lerp translation/scale, nlerp rotation); the game cross-fades the horde walk→bite by proximity to the soldier (see `games/vyrostrike/main.cpp`). | v3.3.0 |
 | ✅ V4.4 Co-op Multiplayer | done — `net/Coop.hpp` `CoopLink` runs a NetServer+NetClient over one bidirectional transport for symmetric peer sync. The game adds `VYRO_COOP=host\|join` (over `UdpTransport`) to bring a 2nd networked soldier into the arena; run two instances on localhost to see both. Default is single-player. | v3.4.0 |
-| **▶ V4.5 Camera & Post-FX** | **DO THIS NEXT** — follow camera with smoothing, screen shake on hits, a tonemap/bloom post pass (math already in `render/PostProcess.hpp`/`PBR.hpp`). | v3.5.0 |
-| v4.0.0 | stabilize + GitHub release with `cpack` tarball | v4.0.0 |
+| ✅ V4.5 Camera & Post-FX | done — `render/CameraRig.hpp` (`smooth_follow` + trauma `ScreenShake`); the camera eases toward the soldier and shakes on fire/bites. A fullscreen post pass adds a vignette + red damage flash (`OpenGLDevice::set_uniform_float` added for the flash uniform). **NOTE:** a true HDR bloom/tonemap pass still needs offscreen render targets — the RHI has no framebuffer/RTT yet; adding that is a good v4.0.0-era engine task. | v3.5.0 |
+| **▶ v4.0.0** | **DO THIS NEXT** — stabilize + GitHub release with `cpack` tarball. Consider adding RHI render-target support to finish the HDR bloom post pass. | v4.0.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -180,6 +181,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 43 test suites, all green in Release.
-- Latest tag: **v3.4.0** (V4.4 Co-op Multiplayer complete).
-- **Next action: implement V4.5 Camera & Post-FX** (see §4).
+- 44 test suites, all green in Release.
+- Latest tag: **v3.5.0** (V4.5 Camera & Post-FX complete).
+- **Next action: v4.0.0 stabilize + release** (see §4); optionally add RHI render targets for HDR bloom.
