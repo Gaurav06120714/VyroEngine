@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 48 test suites, all green
+ctest --test-dir build              # 49 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -121,7 +121,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V5.2 Real-Time Shadows | done — `shadows::light_view_projection` builds the sun's ortho matrix; a depth pass renders occluders (soldier/ally/horde) into a shadow map (`bind_texture` to unit 1, `set_uniform_int` for the sampler), and the scene shader does 3x3 PCF shadowing on the ground. | v4.2.0 |
 | ✅ V5.3 Larger Worlds & Culling | done — `render/Frustum.hpp` (Gribb-Hartmann plane extraction + sphere/AABB tests). The arena is now a 7x7 tiled ground; off-screen tiles and zombies/bullets are frustum-culled (HUD shows drawn/total tiles). | v4.3.0 |
 | ✅ V5.4 Gameplay AI | done — `ai/Steering.hpp` (seek + inverse-distance separation, speed-clamped `horde_velocity`, idle/seek/attack `select_state`). The game drives zombies with it so the horde fans out and surrounds. | v4.4.0 |
-| **▶ V5.5 GPU-Driven Rendering** | **DO THIS NEXT** — instanced rendering of the horde (one draw call for N zombies) + draw-call batching; profile against `core/Profiler`. Then the **v5.0.0** umbrella release (version bump, `cpack`, GitHub release). | v4.5.0 |
+| ✅ V5.5 GPU-Driven Rendering | done — `render/Batch.hpp` `batch_transform` merges the horde into one buffer; the game draws all visible zombies in a single call and shows a draw-call counter in the HUD. (True GPU hardware instancing — per-instance attributes/`glDrawElementsInstanced` — is a future RHI addition; this is the CPU batch.) | v4.5.0 |
+| **▶ v5.0.0** | **DO THIS NEXT** — umbrella release: bump version to 5.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v5.0.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -191,6 +192,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 48 test suites, all green in Release.
-- Latest tag: **v4.4.0** (V5.4 gameplay AI complete).
-- **Next action: implement V5.5 GPU-Driven Rendering, then the v5.0.0 release** (see §4).
+- 49 test suites, all green in Release.
+- Latest tag: **v4.5.0** (V5.5 batching complete; v5.0.0 release next).
+- **Next action: cut the v5.0.0 umbrella release** (version bump + cpack + GitHub release).

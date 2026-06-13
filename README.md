@@ -55,8 +55,8 @@ GPU-driven batching to draw it all fast. Full plan:
 | V5.2 — Real-Time Shadows | Directional shadow-map pass: the soldier and horde cast PCF shadows on the ground | ✅ Complete | v4.2.0 |
 | V5.3 — Larger Worlds & Culling | Tiled ground world + Gribb-Hartmann frustum culling of tiles/entities | ✅ Complete | v4.3.0 |
 | V5.4 — Gameplay AI | Seek + separation steering so the horde fans out and surrounds | ✅ Complete | v4.4.0 |
-| V5.5 — GPU-Driven Rendering | Instanced horde rendering + draw-call batching | 🔧 Next | v4.5.0 |
-| **v5.0.0** | All of the above stabilized + released | 📋 Planned | v5.0.0 |
+| V5.5 — GPU-Driven Rendering | The whole horde drawn in one batched call (draw-call counter in HUD) | ✅ Complete | v4.5.0 |
+| **v5.0.0** | All of the above stabilized + released | 🔧 Next | v5.0.0 |
 
 ---
 
