@@ -42,6 +42,12 @@ Mat4 light_view_projection(Vec3 light_dir, Vec3 center, f32 radius, f32 depth)
     return proj * view;
 }
 
+f32 slope_scaled_bias(f32 n_dot_l, f32 base, f32 slope_max)
+{
+    const f32 ndl = std::clamp(n_dot_l, 0.0f, 1.0f);
+    return base + slope_max * (1.0f - ndl);
+}
+
 } // namespace shadows
 
 namespace postfx {

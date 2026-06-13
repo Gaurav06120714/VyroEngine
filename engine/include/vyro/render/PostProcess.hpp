@@ -28,6 +28,11 @@ namespace shadows {
 // render the scene's depth from the sun's point of view into a shadow map.
 [[nodiscard]] Mat4 light_view_projection(Vec3 light_dir, Vec3 center, f32 radius, f32 depth);
 
+// Slope-scaled shadow-map depth bias: surfaces facing the light (n·l = 1) use
+// `base`; grazing surfaces add up to `slope_max` to fight shadow acne. Result
+// is clamped to [base, base + slope_max].
+[[nodiscard]] f32 slope_scaled_bias(f32 n_dot_l, f32 base, f32 slope_max);
+
 } // namespace shadows
 
 namespace postfx {
