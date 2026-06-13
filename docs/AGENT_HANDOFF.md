@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 53 test suites, all green
+ctest --test-dir build              # 54 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -141,7 +141,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V6.5 Profiling & Optimization | done — `FrameStats` EMA + on-screen FPS/ms readout and frame-time graph; skinning profiled via ScopedTimer. | v5.5.0 |
 | ✅ v6.0.0 | done — version bumped to 6.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V6 complete.** | v6.0.0 |
 | ✅ V7.1 Varied Horde Animation | done — `CycleVariation.hpp`; horde animates out of lockstep across K instanced phase buckets. | v6.1.0 |
-| **▶ V7.2 Enemy Variety** | **DO THIS NEXT** — multiple enemy archetypes (walker/runner/brute) with per-type speed/health/scale/score via data components. See docs/ROADMAP_V7.md. | v6.2.0 |
+| ✅ V7.2 Enemy Variety | done — `weighted_index` + walker/runner/brute archetypes (speed/health/scale/score). | v6.2.0 |
+| **▶ V7.3 Weapons & Damage** | **DO THIS NEXT** — weapon model (fire rate/spread/pellets/damage/reload); pistol/rifle/shotgun loadouts; enemies take weapon damage. See docs/ROADMAP_V7.md. | v6.3.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -211,6 +212,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 53 test suites, all green in Release.
-- Latest tag: **v6.1.0** (V7.1 varied horde animation complete).
-- **Next action: implement V7.2 Enemy Variety** (see docs/ROADMAP_V7.md).
+- 54 test suites, all green in Release.
+- Latest tag: **v6.2.0** (V7.2 enemy variety complete).
+- **Next action: implement V7.3 Weapons & Damage** (see docs/ROADMAP_V7.md).
