@@ -34,8 +34,8 @@ Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 
 | V4 Phase | Goal | Status | Tag |
 |----------|------|--------|-----|
-| V4.1 — Particle System | Pooled emitters + GPU quads: muzzle flashes and blood bursts | 🔧 In Progress | v3.1.0 |
-| V4.2 — Audio Files & Music | WAV/OGG decoding + looping background music | 📋 Planned | v3.2.0 |
+| V4.1 — Particle System | Pooled emitters + GPU quads: muzzle flashes and blood bursts | ✅ Complete | v3.1.0 |
+| V4.2 — Audio Files & Music | WAV/OGG decoding + looping background music | 🔧 Next | v3.2.0 |
 | V4.3 — Animation Blending | Idle ↔ walk ↔ attack blend trees on live characters | 📋 Planned | v3.3.0 |
 | V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP | 📋 Planned | v3.4.0 |
 | V4.5 — Camera & Post-FX | Follow camera, screen shake, tonemap/bloom pass | 📋 Planned | v3.5.0 |
