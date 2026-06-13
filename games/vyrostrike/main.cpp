@@ -240,25 +240,46 @@ in vec3 vColor; out vec4 FragColor;
 void main(){ FragColor=vec4(vColor,1.0); })";
     const auto hud_shader = device.create_shader({hud_vs, hud_fs});
 
-    // ── Post-FX (V4.5): fullscreen screen-space pass ─────────────────
-    // An always-on vignette darkens the edges; u_flash reddens the whole
-    // screen when the soldier is bitten. Drawn last, alpha-blended over the
-    // scene with depth test off. (A true HDR bloom pass needs offscreen render
-    // targets the RHI doesn't expose yet — that's a later engine addition.)
+    // ── Post-FX (V5.1): HDR bloom composite ──────────────────────────
+    // The scene renders into an offscreen HDR target; this fullscreen pass
+    // samples it, blooms the bright (>1) pixels, ACES-tonemaps to LDR, then
+    // applies the V4.5 vignette and damage flash. u_scene = scene color,
+    // u_flash = red damage pulse.
     const char* post_vs = R"(#version 330 core
 layout(location=0) in vec3 aPos; layout(location=2) in vec2 aUV;
 out vec2 vUV;
 void main(){ gl_Position=vec4(aPos,1.0); vUV=aUV; })";
     const char* post_fs = R"(#version 330 core
-in vec2 vUV; uniform float u_flash; out vec4 FragColor;
+in vec2 vUV; out vec4 FragColor;
+uniform sampler2D u_scene; uniform float u_flash;
 void main(){
+  ivec2 sz = textureSize(u_scene, 0);
+  vec2 texel = 1.0 / vec2(sz);
+  vec3 hdr = texture(u_scene, vUV).rgb;
+  // Cheap separable-ish bloom: gather the bright component over a neighborhood.
+  vec3 bloom = vec3(0.0); float total = 0.0;
+  for (int dx=-3; dx<=3; ++dx){
+    for (int dy=-3; dy<=3; ++dy){
+      float w = 1.0 / (1.0 + float(dx*dx+dy*dy));
+      vec3 s = texture(u_scene, vUV + vec2(dx,dy)*texel*2.5).rgb;
+      bloom += max(s - vec3(1.0), vec3(0.0)) * w; // threshold 1.0
+      total += w;
+    }
+  }
+  bloom /= total;
+  vec3 color = hdr + bloom * 1.4;
+  // ACES filmic tonemap (Narkowicz), matching postfx::tonemap_aces.
+  vec3 m = clamp((color*(2.51*color+0.03))/(color*(2.43*color+0.59)+0.14), 0.0, 1.0);
+  // Vignette + damage flash.
   float d = distance(vUV, vec2(0.5));
-  float vig = smoothstep(0.45, 0.85, d) * 0.45;
-  float a = clamp(vig + u_flash, 0.0, 0.85);
-  vec3 col = mix(vec3(0.0), vec3(0.75,0.05,0.06), clamp(u_flash / max(a,1e-3), 0.0, 1.0));
-  FragColor = vec4(col, a);
+  m *= (1.0 - smoothstep(0.45, 0.85, d) * 0.45);
+  m = mix(m, vec3(0.75,0.05,0.06), u_flash);
+  FragColor = vec4(m, 1.0);
 })";
     const auto post_shader = device.create_shader({post_vs, post_fs});
+    // HDR offscreen target the whole scene renders into (V5.1).
+    const auto scene_rt = device.create_render_target(
+        {window.framebuffer_width(), window.framebuffer_height(), /*hdr*/ true});
     // A fullscreen quad in NDC; uv 0..1 across the screen for the vignette.
     auto make_quad_vertex = [](vyro::f32 x, vyro::f32 y, vyro::f32 u, vyro::f32 v) {
         vyro::Vertex3D vert;
@@ -280,9 +301,10 @@ layout(location=2) in vec2 aUV;  layout(location=3) in vec3 aColor;
 uniform mat4 u_vp;
 out vec3 vColor;
 void main(){ gl_Position=u_vp*vec4(aPos,1.0); vColor=aColor; })";
+    // Particles are emissive (>1) so the HDR bloom pass makes them glow.
     const char* part_fs = R"(#version 330 core
 in vec3 vColor; out vec4 FragColor;
-void main(){ FragColor=vec4(vColor,1.0); })";
+void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     const auto part_shader = device.create_shader({part_vs, part_fs});
     constexpr vyro::usize kPartMaxVerts = 60000;
     const auto part_vbo = device.create_buffer(
@@ -648,7 +670,8 @@ void main(){ FragColor=vec4(vColor,1.0); })";
         const vyro::Vec3 cam_pan{cam_focus_x + shake_off.x, shake_off.y, 0.0f};
         camera.set_view(base_eye + cam_pan, base_target + cam_pan);
 
-        // ── Render ───────────────────────────────────────────────────
+        // ── Render scene into the offscreen HDR target (V5.1) ────────
+        device.bind_render_target(scene_rt);
         device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
         device.clear(state.game_over ? vyro::Vec4{0.25f, 0.05f, 0.06f, 1.0f}
                                      : vyro::Vec4{0.05f, 0.06f, 0.10f, 1.0f});
@@ -781,12 +804,16 @@ void main(){ FragColor=vec4(vColor,1.0); })";
         }
         device.update_buffer(hud_vbo, hud_verts.data(),
                              hud_verts.size() * sizeof(vyro::Vertex3D));
-        // ── Post-FX pass (V4.5): vignette + damage flash over the scene ─
+        // ── Post-FX pass (V5.1): bloom + tonemap + vignette/flash ────
+        // Resolve the offscreen HDR scene to the window with the bloom shader.
+        device.bind_render_target({});
+        device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
         device.set_depth_test(false);
         device.set_uniform_float(post_shader, "u_flash", damage_flash);
         vyro::DrawCommand post_cmd;
         post_cmd.shader = post_shader;
         post_cmd.vertex_buffer = post_vbo;
+        post_cmd.texture = device.render_target_texture(scene_rt);
         post_cmd.vertex_count = static_cast<vyro::u32>(post_verts.size());
         post_cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
         device.draw(post_cmd);
