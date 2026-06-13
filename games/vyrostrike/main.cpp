@@ -22,6 +22,7 @@
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
+#include "vyro/game/GameFlow.hpp"
 #include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
@@ -545,6 +546,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     std::mt19937 rng{1234};
     std::uniform_real_distribution<vyro::f32> spawn_x(-kArenaHalfWidth, kArenaHalfWidth);
 
+    // V7.5: a structured run — 5 waves, kill targets that ramp, intermissions.
+    vyro::game::GameFlow flow(5, 8, 5, 3.0f);
+
     // Co-op spawns the two allies apart so they don't overlap (set below).
     vyro::f32 coop_start_x = 0.0f;
     auto reset = [&] {
@@ -556,6 +560,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         }
         state = GameState{};
         state.player_x = coop_start_x;
+        flow.reset();
         VYRO_INFO("Game", "new game");
     };
 
@@ -679,6 +684,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         }
 
         if (!state.game_over) {
+            flow.update(dt); // advance intermission / wave flow (V7.5)
             // ── Player movement ──────────────────────────────────────
             vyro::f32 move = 0.0f;
             if (input.is_action_down("MoveLeft")) {
@@ -747,12 +753,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 weapon.begin_reload();
             }
 
-            // ── Enemy spawning (difficulty ramps with score) ─────────
-            // The co-op joiner does not spawn its own horde — it renders the
-            // host's authoritative one (V6.3).
-            state.wave = 1 + state.score / 10;
+            // ── Enemy spawning (difficulty ramps with the wave) ──────
+            // Only during the Fighting phase; the co-op joiner renders the
+            // host's authoritative horde instead of spawning (V6.3/V7.5).
+            state.wave = flow.wave();
             state.spawn_timer -= dt;
-            if (!coop_is_joiner && state.spawn_timer <= 0.0f) {
+            if (flow.spawning() && !coop_is_joiner && state.spawn_timer <= 0.0f) {
                 state.spawn_timer = state.spawn_interval;
                 state.spawn_interval =
                     std::max(0.5f, 1.5f - static_cast<vyro::f32>(state.wave) * 0.15f);
@@ -828,7 +834,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         audio.play(sfx_hit, 1.0f);
                     }
                     if (state.hp <= 0) {
-                        state.game_over = true;
+                        flow.player_died(); // -> Defeat (V7.5)
                     }
                     return;
                 }
@@ -847,6 +853,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                             if (en->health <= 0) {
                                 shot.push_back(e);
                                 state.score += kEnemyTypes[en->type].score;
+                                flow.register_kill(); // wave progress (V7.5)
                             }
                         }
                     });
@@ -898,8 +905,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             for (const auto e : dead) {
                 world.destroy_entity(e);
             }
-            if (state.game_over) {
-                VYRO_WARN("Game", "GAME OVER — score {} (press R to restart)", state.score);
+            // Victory or defeat freezes gameplay until restart (V7.5).
+            if (flow.over()) {
+                state.game_over = true;
+                VYRO_WARN("Game", "{} — score {} (press R to restart)",
+                          flow.phase() == vyro::game::Phase::Victory ? "VICTORY" : "DEFEAT",
+                          state.score);
             }
         }
 
@@ -1183,10 +1194,21 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         const int hud_wave = show_host ? coop_state->latest().wave : state.wave;
         const int hud_score = show_host ? coop_state->latest().score : state.score;
         hud_verts.clear();
-        vyro::text::build(std::format("WAVE {}", hud_wave), -0.97f, 0.95f, 0.07f,
-                          hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
+        vyro::text::build(std::format("WAVE {}/{}", hud_wave, flow.total_waves()), -0.97f, 0.95f,
+                          0.07f, hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
         vyro::text::build(std::format("SCORE {}", hud_score), -0.97f, 0.85f, 0.07f,
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
+        // Objective line (V7.5): kill target, or the intermission countdown.
+        if (!coop_is_joiner && !flow.over()) {
+            if (flow.phase() == vyro::game::Phase::Intermission) {
+                vyro::text::build(std::format("WAVE CLEAR  NEXT IN {}",
+                                              static_cast<int>(flow.intermission_left()) + 1),
+                                  0.18f, 0.95f, 0.06f, hud_aspect, {0.5f, 0.9f, 0.6f}, hud_verts);
+            } else {
+                vyro::text::build(std::format("KILL {}/{}", flow.kills(), flow.required()), 0.32f,
+                                  0.95f, 0.06f, hud_aspect, {0.9f, 0.6f, 0.5f}, hud_verts);
+            }
+        }
         vyro::text::build(std::format("TILES {}/{}", tiles_drawn, tiles_total), -0.97f, 0.76f,
                           0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
         vyro::text::build(std::format("HORDE {} DRAWS {}", horde_visible,
@@ -1247,12 +1269,13 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         vyro::text::build(hearts, 0.7f, 0.95f, 0.09f, hud_aspect, {0.95f, 0.2f, 0.25f},
                           hud_verts);
         if (state.game_over) {
-            const char* msg = "GAME OVER";
+            const bool won = flow.phase() == vyro::game::Phase::Victory;
+            const char* msg = won ? "VICTORY" : "DEFEAT";
             const char* sub = "PRESS R TO RESTART";
+            const vyro::Vec3 col = won ? vyro::Vec3{0.4f, 0.95f, 0.5f} : vyro::Vec3{0.95f, 0.15f, 0.15f};
             const vyro::f32 w1 = vyro::text::measure(msg, 0.22f, hud_aspect);
             const vyro::f32 w2 = vyro::text::measure(sub, 0.07f, hud_aspect);
-            vyro::text::build(msg, -w1 * 0.5f, 0.2f, 0.22f, hud_aspect,
-                              {0.95f, 0.15f, 0.15f}, hud_verts);
+            vyro::text::build(msg, -w1 * 0.5f, 0.2f, 0.22f, hud_aspect, col, hud_verts);
             vyro::text::build(sub, -w2 * 0.5f, -0.05f, 0.07f, hud_aspect,
                               {0.9f, 0.9f, 0.9f}, hud_verts);
         }
