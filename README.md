@@ -59,6 +59,20 @@ Full plan: [docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
 | V5.5 — GPU-Driven Rendering | The whole horde drawn in one batched call (draw-call counter in HUD) | ✅ Complete | v4.5.0 |
 | **v5.0.0** | All of the above stabilized + released | ✅ Complete | v5.0.0 |
 
+**Planned next: VyroEngine 6.0** — the production-grade era: true GPU hardware
+instancing, a depth-texture shadow pipeline, networked co-op gameplay, an
+authored level/obstacle pipeline, and a measured performance budget. Full plan:
+[docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
+
+| V6 Phase | Goal | Status | Tag |
+|----------|------|--------|-----|
+| V6.1 — GPU Hardware Instancing | Per-instance attributes + `glDrawElementsInstanced`; one instanced horde draw | 📋 Planned | v5.1.0 |
+| V6.2 — Depth-Texture RTT & Soft Shadows | Sampleable depth-texture targets; softer, biased shadows | 📋 Planned | v5.2.0 |
+| V6.3 — Networked Co-op Gameplay | Authoritative host shares horde/score/waves; two players, one fight | 📋 Planned | v5.3.0 |
+| V6.4 — Level & Obstacle Pipeline | Authored arenas/obstacles via SceneSerializer; AI avoidance + physics | 📋 Planned | v5.4.0 |
+| V6.5 — Profiling & Optimization | On-screen profiler/frame graph + hot-path optimization to a budget | 📋 Planned | v5.5.0 |
+| **v6.0.0** | All of the above stabilized + released | 📋 Planned | v6.0.0 |
+
 ---
 
 ## Games built on VyroEngine
