@@ -20,6 +20,7 @@
 #include "vyro/audio/SoundSynth.hpp"
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
+#include "vyro/core/Random.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
 #include "vyro/ecs/Registry.hpp"
@@ -67,6 +68,27 @@ struct EnemyTag {};
 // A zombie that has been shot: plays out its death (fall + sink) then despawns.
 struct DyingTag {
     vyro::f32 t = 0.0f;
+};
+
+// ── Enemy archetypes (V7.2): walker / runner / brute ─────────────────
+struct EnemyType {
+    const char* name;
+    vyro::f32 speed_mult; // multiplies the wave base speed
+    int health;           // bullet hits to kill
+    vyro::f32 scale;      // render + hit size
+    int score;            // points on kill
+    vyro::f32 weight;     // spawn likelihood
+};
+constexpr EnemyType kEnemyTypes[] = {
+    {"walker", 1.0f, 1, 1.0f, 1, 60.0f},
+    {"runner", 1.8f, 1, 0.8f, 2, 25.0f},
+    {"brute", 0.6f, 4, 1.5f, 5, 15.0f},
+};
+// Per-enemy data: which archetype and remaining health.
+struct Enemy {
+    int type = 0;
+    int health = 1;
+    vyro::f32 speed = 2.0f;
 };
 
 // ── Tuning ───────────────────────────────────────────────────────────
@@ -695,10 +717,20 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 state.spawn_interval =
                     std::max(0.5f, 1.5f - static_cast<vyro::f32>(state.wave) * 0.15f);
                 state.enemy_speed = 2.0f + static_cast<vyro::f32>(state.wave) * 0.35f;
+                // Pick an archetype; runners/brutes get more common with waves.
+                const vyro::f32 ramp = std::min(static_cast<vyro::f32>(state.wave) * 0.05f, 0.6f);
+                const std::array<vyro::f32, 3> weights{
+                    kEnemyTypes[0].weight * (1.0f - ramp), kEnemyTypes[1].weight * (1.0f + ramp),
+                    kEnemyTypes[2].weight * (1.0f + ramp)};
+                const auto roll = std::uniform_real_distribution<vyro::f32>(0.0f, 1.0f)(rng);
+                const int type = static_cast<int>(vyro::weighted_index(weights, roll));
+                const EnemyType& et = kEnemyTypes[type];
                 const auto e = world.create_entity();
                 world.add_component<Position>(e, Position{{spawn_x(rng), 0.0f, kSpawnZ}});
                 world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, state.enemy_speed}});
                 world.add_component<EnemyTag>(e, EnemyTag{});
+                world.add_component<Enemy>(
+                    e, Enemy{type, et.health, state.enemy_speed * et.speed_mult});
             }
 
             // Zombie AI (V5.4): seek the soldier while spreading from the pack
@@ -708,8 +740,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             world.view<Position, EnemyTag>().for_each(
                 [&](Position& p, EnemyTag&) { horde_positions.push_back(p.value); });
             const vyro::Vec3 soldier_pos{state.player_x, 0.0f, kPlayerZ};
-            world.view<Position, Velocity, EnemyTag>().for_each(
-                [&](Position& p, Velocity& v, EnemyTag&) {
+            world.view<Position, Velocity, Enemy>().for_each(
+                [&](Position& p, Velocity& v, Enemy& en) {
+                    const vyro::f32 speed = en.speed; // per-archetype speed (V7.2)
                     const vyro::f32 dist = vyro::length(soldier_pos - p.value);
                     const vyro::ai::ZombieState st = vyro::ai::select_state(dist, 60.0f, 1.8f);
                     if (st == vyro::ai::ZombieState::Idle) {
@@ -717,13 +750,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         return;
                     }
                     vyro::Vec3 desired = vyro::ai::horde_velocity(
-                        p.value, soldier_pos, horde_positions, state.enemy_speed, 2.5f, 1.5f);
-                    desired = desired
-                              + vyro::ai::avoid_obstacles(p.value, obstacles, 2.0f,
-                                                          state.enemy_speed);
+                        p.value, soldier_pos, horde_positions, speed, 2.5f, 1.5f);
+                    desired = desired + vyro::ai::avoid_obstacles(p.value, obstacles, 2.0f, speed);
                     const vyro::f32 sp = vyro::length(desired);
-                    if (sp > state.enemy_speed && sp > 1e-5f) {
-                        desired = desired * (state.enemy_speed / sp);
+                    if (sp > speed && sp > 1e-5f) {
+                        desired = desired * (speed / sp);
                     }
                     v.value = desired;
                     v.value.y = 0.0f;
@@ -741,7 +772,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 if (world.has_component<DyingTag>(e)) {
                     return; // already falling — no bites, no double kills
                 }
-                const vyro::Sphere enemy_sphere{ep.value, kEnemyRadius};
+                auto* en = world.get_component<Enemy>(e);
+                const vyro::f32 escale = en != nullptr ? kEnemyTypes[en->type].scale : 1.0f;
+                const vyro::Sphere enemy_sphere{ep.value, kEnemyRadius * escale};
 
                 // A zombie that reaches the soldier takes a bite: lose a heart.
                 const vyro::Sphere player_sphere{{state.player_x, 0.0f, kPlayerZ}, kPlayerRadius};
@@ -760,14 +793,20 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     return;
                 }
 
-                // Bullet hits start the death animation.
+                // Bullet hits deal damage; the enemy only dies at 0 health (V7.2).
                 world.view<Position, BulletTag>().for_each_entity(
                     [&](vyro::Entity b, Position& bp, BulletTag&) {
+                        if (en == nullptr || en->health <= 0) {
+                            return;
+                        }
                         if (vyro::collide(enemy_sphere, vyro::Sphere{bp.value, kBulletRadius})
                                 .colliding) {
-                            shot.push_back(e);
-                            dead.push_back(b);
-                            ++state.score;
+                            dead.push_back(b); // bullet is consumed
+                            --en->health;
+                            if (en->health <= 0) {
+                                shot.push_back(e);
+                                state.score += kEnemyTypes[en->type].score;
+                            }
                         }
                     });
             });
@@ -1006,13 +1045,17 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         if (const auto* v = world.get_component<Velocity>(e)) {
                             yaw = std::atan2(v->value.x, v->value.z);
                         }
+                        // Per-archetype size (brutes bigger, runners smaller) — V7.2.
+                        const auto* en = world.get_component<Enemy>(e);
+                        const vyro::f32 s = en != nullptr ? kEnemyTypes[en->type].scale : 1.0f;
+                        const vyro::Mat4 fit = vyro::Mat4::scale({s, s, s}) * zombie_fit;
                         vyro::Mat4 pose = vyro::Mat4::translation(p.value)
-                                          * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
+                                          * vyro::Mat4::rotation({0, 1, 0}, yaw) * fit;
                         if (const auto* dying = world.get_component<DyingTag>(e)) {
                             const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
                             pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
                                    * vyro::Mat4::rotation({0, 1, 0}, yaw)
-                                   * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
+                                   * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * fit;
                         }
                         push_bucket(e.index, pose);
                     });
