@@ -65,6 +65,34 @@ enum class ZombieState : u8 {
     return push * (strength / len);
 }
 
+// A round obstacle the horde must flow around (a pillar/cover piece).
+struct Obstacle {
+    Vec3 center{};
+    f32 radius = 1.0f;
+};
+
+// Steer away from obstacles whose surface is within `margin` of `pos`; closer
+// obstacles push harder. Accounts for each obstacle's radius.
+[[nodiscard]] inline Vec3 avoid_obstacles(Vec3 pos, std::span<const Obstacle> obstacles,
+                                          f32 margin, f32 strength)
+{
+    Vec3 push{};
+    for (const Obstacle& o : obstacles) {
+        const Vec3 away = pos - o.center;
+        const f32 d = length(away);
+        const f32 surface = d - o.radius; // distance to the obstacle's edge
+        if (surface < margin && d > 1e-4f) {
+            const f32 w = (margin - surface) / margin; // 0 at margin, 1 at the edge
+            push = push + away * ((w > 0.0f ? w : 0.0f) / d);
+        }
+    }
+    const f32 len = length(push);
+    if (len <= 1e-5f) {
+        return Vec3{};
+    }
+    return push * (strength / len);
+}
+
 // Combined desired velocity: seek the player + spread from the pack, clamped to
 // `max_speed`. Keeps the horde surrounding rather than single-file.
 [[nodiscard]] inline Vec3 horde_velocity(Vec3 pos, Vec3 target, std::span<const Vec3> neighbors,
