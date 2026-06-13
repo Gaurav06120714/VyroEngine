@@ -26,6 +26,7 @@
 #include "vyro/physics/Collision.hpp"
 #include "vyro/platform/Input.hpp"
 #include "vyro/platform/Window.hpp"
+#include "vyro/render/Batch.hpp"
 #include "vyro/render/Camera.hpp"
 #include "vyro/render/CameraRig.hpp"
 #include "vyro/render/Frustum.hpp"
@@ -409,6 +410,21 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         zombie_fit = fit_transform(zombie_model.mesh, 1.9f);
     }
 
+    // V5.5: a single batched buffer for the whole horde (drawn in one call).
+    constexpr vyro::usize kMaxZombieInstances = 64;
+    const vyro::usize zombie_vert_count = zombie_model.mesh.vertices.size();
+    const vyro::usize zombie_index_count = zombie_model.mesh.indices.size();
+    const auto horde_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex,
+         kMaxZombieInstances * zombie_vert_count * sizeof(vyro::Vertex3D), nullptr});
+    const auto horde_ibo = device.create_buffer(
+        {vyro::BufferType::Index, kMaxZombieInstances * zombie_index_count * sizeof(vyro::u32),
+         nullptr});
+    vyro::MeshData zombie_frame;  // this frame's skinned verts + static indices
+    zombie_frame.indices = zombie_model.mesh.indices;
+    vyro::MeshData horde_batch;             // batched output
+    std::vector<vyro::Mat4> horde_xforms;   // one model matrix per visible zombie
+
     auto upload_tex = [&](const vyro::Image& img, bool has) {
         if (has) {
             return device.create_texture(
@@ -723,6 +739,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         const vyro::Vec3 cam_pan{cam_focus_x + shake_off.x, shake_off.y, 0.0f};
         camera.set_view(base_eye + cam_pan, base_target + cam_pan);
 
+        device.reset_draw_count(); // count draw calls this frame (V5.5)
+
         // ── Shadow depth pass (V5.2): occluders from the sun's POV ───
         const vyro::Vec3 sun_dir{-0.4f, -1.0f, -0.3f};
         light_vp = vyro::shadows::light_view_projection(
@@ -841,19 +859,26 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                     static_cast<vyro::usize>(bite_clip), anim_t, bite_weight,
                                     zombie_pose);
             zombie_model.skin(zombie_pose, zombie_skinned);
-            device.update_buffer(zombie.vbo, zombie_skinned.data(),
-                                 zombie_skinned.size() * sizeof(vyro::Vertex3D));
+            zombie_frame.vertices = zombie_skinned;
         }
+        // Collect a model matrix per visible zombie, then draw the whole horde
+        // in ONE batched call (V5.5) instead of one draw per zombie.
+        horde_xforms.clear();
         world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& p,
                                                              EnemyTag&) {
-            // Face the direction of travel (toward the soldier).
+            if (horde_xforms.size() >= kMaxZombieInstances) {
+                return;
+            }
+            // Frustum-cull: skip zombies the camera can't see (V5.3).
+            if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
+                return;
+            }
             vyro::f32 yaw = 0.0f;
             if (const auto* v = world.get_component<Velocity>(e)) {
                 yaw = std::atan2(v->value.x, v->value.z);
             }
             vyro::Mat4 pose = vyro::Mat4::translation(p.value)
                               * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
-
             // Death: tip backward and sink into the ground over the fall.
             if (const auto* dying = world.get_component<DyingTag>(e)) {
                 const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
@@ -861,12 +886,18 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                        * vyro::Mat4::rotation({0, 1, 0}, yaw)
                        * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
             }
-            // Frustum-cull: skip zombies the camera can't see (V5.3).
-            if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
-                return;
-            }
-            draw_mesh(zombie, pose, zombie_tex);
+            horde_xforms.push_back(pose);
         });
+        if (!horde_xforms.empty() && !zombie_frame.vertices.empty()) {
+            vyro::batch_transform(zombie_frame, horde_xforms, horde_batch);
+            device.update_buffer(horde_vbo, horde_batch.vertices.data(),
+                                 horde_batch.vertices.size() * sizeof(vyro::Vertex3D));
+            device.update_buffer(horde_ibo, horde_batch.indices.data(),
+                                 horde_batch.indices.size() * sizeof(vyro::u32));
+            const GpuMesh horde_mesh{horde_vbo, horde_ibo,
+                                     static_cast<vyro::u32>(horde_batch.indices.size())};
+            draw_mesh(horde_mesh, vyro::Mat4::identity(), zombie_tex);
+        }
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
             if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 0.4f)) {
                 return;
@@ -906,6 +937,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
         vyro::text::build(std::format("TILES {}/{}", tiles_drawn, tiles_total), -0.97f, 0.76f,
                           0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
+        vyro::text::build(std::format("HORDE {} DRAWS {}", static_cast<int>(horde_xforms.size()),
+                                      device.draw_call_count()),
+                          -0.97f, 0.70f, 0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
         std::string hearts;
         for (int i = 0; i < std::max(state.hp, 0); ++i) {
             hearts += '\x03';
