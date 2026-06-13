@@ -18,7 +18,9 @@
 #include "vyro/audio/AudioFile.hpp"
 #include "vyro/audio/SoundSynth.hpp"
 #include "vyro/core/Engine.hpp"
+#include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Log.hpp"
+#include "vyro/core/Profiler.hpp"
 #include "vyro/ecs/Registry.hpp"
 #include "vyro/math/Mat4.hpp"
 #include "vyro/net/Coop.hpp"
@@ -592,6 +594,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     const vyro::Vec3 base_eye{0.0f, 4.5f, kPlayerZ + 6.5f};
     const vyro::Vec3 base_target{0.0f, 0.0f, kPlayerZ - 8.0f};
 
+    // ── Profiling (V6.5): frame-time EMA + a short history for the graph ─
+    vyro::FrameStats fps_stats(0.1);
+    std::vector<vyro::f32> frame_history; // recent frame times (ms)
+    constexpr vyro::usize kFrameHistory = 48;
+    constexpr vyro::f64 kFrameBudgetMs = 16.6; // 60 fps
+
     auto last = std::chrono::steady_clock::now();
     int last_title_score = -1;
 
@@ -599,6 +607,15 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         const auto now = std::chrono::steady_clock::now();
         const vyro::f32 dt = std::min(std::chrono::duration<vyro::f32>(now - last).count(), 0.05f);
         last = now;
+
+        // Frame timing for the on-screen profiler (V6.5).
+        const vyro::f64 frame_ms = static_cast<vyro::f64>(dt) * 1000.0;
+        fps_stats.add(frame_ms);
+        vyro::Profiler::instance().end_frame(frame_ms);
+        frame_history.push_back(static_cast<vyro::f32>(fps_stats.average_ms()));
+        if (frame_history.size() > kFrameHistory) {
+            frame_history.erase(frame_history.begin());
+        }
 
         window.poll_events();
         pump_input(input, window.native());
@@ -939,6 +956,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             constexpr vyro::f32 kBiteFar = 3.2f;
             const vyro::f32 bite_weight =
                 std::clamp((kBiteFar - nearest) / (kBiteFar - kBiteNear), 0.0f, 1.0f);
+            VYRO_PROFILE_SCOPE("zombie_skinning");
             zombie_model.pose_blend(static_cast<vyro::usize>(walk_clip), anim_t,
                                     static_cast<vyro::usize>(bite_clip), anim_t, bite_weight,
                                     zombie_pose);
@@ -1053,6 +1071,41 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         vyro::text::build(std::format("HORDE {} DRAWS {}", static_cast<int>(horde_xforms.size()),
                                       device.draw_call_count()),
                           -0.97f, 0.70f, 0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
+        // Profiler readout: FPS / frame time, green under budget, red over.
+        const bool over = fps_stats.over_budget(kFrameBudgetMs);
+        const vyro::Vec3 perf_col = over ? vyro::Vec3{0.95f, 0.35f, 0.3f}
+                                         : vyro::Vec3{0.55f, 0.8f, 0.6f};
+        vyro::text::build(std::format("FPS {} {:.1f}MS", static_cast<int>(fps_stats.fps() + 0.5),
+                                      fps_stats.average_ms()),
+                          -0.97f, 0.64f, 0.045f, hud_aspect, perf_col, hud_verts);
+        // Frame-time graph (V6.5): a strip of bars, height = ms vs ~2x budget.
+        {
+            const vyro::f32 gx0 = 0.62f;
+            const vyro::f32 gx1 = 0.97f;
+            const vyro::f32 gy0 = 0.62f; // bottom
+            const vyro::f32 gh = 0.16f;  // full height
+            const vyro::f32 full_ms = static_cast<vyro::f32>(kFrameBudgetMs) * 2.0f;
+            const vyro::usize n = frame_history.size();
+            for (vyro::usize i = 0; i < n; ++i) {
+                const vyro::f32 t0 = gx0 + (gx1 - gx0) * (static_cast<vyro::f32>(i) / kFrameHistory);
+                const vyro::f32 t1 =
+                    gx0 + (gx1 - gx0) * (static_cast<vyro::f32>(i + 1) / kFrameHistory) - 0.002f;
+                const vyro::f32 h = std::clamp(frame_history[i] / full_ms, 0.02f, 1.0f) * gh;
+                const vyro::Vec3 c = frame_history[i] > static_cast<vyro::f32>(kFrameBudgetMs)
+                                         ? vyro::Vec3{0.95f, 0.35f, 0.3f}
+                                         : vyro::Vec3{0.4f, 0.7f, 0.5f};
+                const vyro::Vertex3D bl{{t0, gy0, 0}, {}, {}, c};
+                const vyro::Vertex3D br{{t1, gy0, 0}, {}, {}, c};
+                const vyro::Vertex3D tl{{t0, gy0 + h, 0}, {}, {}, c};
+                const vyro::Vertex3D tr{{t1, gy0 + h, 0}, {}, {}, c};
+                hud_verts.push_back(bl);
+                hud_verts.push_back(br);
+                hud_verts.push_back(tr);
+                hud_verts.push_back(bl);
+                hud_verts.push_back(tr);
+                hud_verts.push_back(tl);
+            }
+        }
         std::string hearts;
         for (int i = 0; i < std::max(state.hp, 0); ++i) {
             hearts += '\x03';
