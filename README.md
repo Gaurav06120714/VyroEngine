@@ -60,6 +60,47 @@ Controls: **A/D** move · **Space** shoot · **R** restart · **Esc** quit
 
 ---
 
+## Apps & how to use them
+
+Build once, then run any app from `build/bin/`:
+
+```bash
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
+ctest --test-dir build      # 52 test suites, all green
+```
+
+| App | What it is | How to use |
+|-----|------------|------------|
+| `VyroStrike` | The game — showcases every engine feature | **A/D** move · **Space** shoot · **R** restart · **Esc** quit. `VYRO_AUTOFIRE=1` auto-shoots. Co-op: run `VYRO_COOP=host` and `VYRO_COOP=join` on localhost. |
+| `VyroEditor` | ImGui scene editor | Select entities in the hierarchy, edit transform in the inspector, **+Entity / -Delete**, **Save / Load Scene**; live Stats panel. |
+| `vyro_model` | OpenGL 3D model viewer (OBJ) | Just run it — renders the textured model on a checker floor. |
+| `vyro_vulkan` | Same model through the real **Vulkan** (MoltenVK) backend | Just run it — proves the Vulkan RHI path. |
+| `vyro_window` | OpenGL physics demo — a box bouncing on the floor | Just run it. |
+| `vyro_bounce` | Headless physics demo — ASCII bounce trace | Run in a terminal (no window). |
+| `VyroEngine` | Headless engine smoke test — prints version + ticks | Run in a terminal; verifies the core lifecycle. |
+
+### Screenshots
+
+**VyroStrike: Outbreak** — HDR bloom, real-time shadows, frustum-culled world, horde AI, instancing, and an on-screen profiler:
+
+![VyroStrike gameplay](docs/screenshots/v6.5_profiling.png)
+
+**Level obstacles** (pillars cast shadows, block the soldier, divert the horde) · **Co-op** (two players, shared world):
+
+![Obstacles](docs/screenshots/v6.4_obstacles.png)
+![Co-op](docs/screenshots/v6.3_coop_gameplay.png)
+
+**VyroEditor** · **3D model viewer** · **Vulkan backend** · **physics demo**:
+
+![Editor](docs/screenshots/app_editor.png)
+![Model viewer](docs/screenshots/app_model.png)
+![Vulkan](docs/screenshots/app_vulkan.png)
+![Bouncing ball](docs/screenshots/app_window.png)
+
+More per-phase screenshots live in [`docs/screenshots/`](docs/screenshots/).
+
+---
+
 ## Documentation Index
 
 | File | Description |
