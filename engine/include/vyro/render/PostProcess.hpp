@@ -4,6 +4,7 @@
 #pragma once
 
 #include "vyro/core/Types.hpp"
+#include "vyro/math/Mat4.hpp"
 #include "vyro/math/Vec.hpp"
 
 #include <string>
@@ -20,6 +21,12 @@ namespace shadows {
 
 // Index of the cascade that covers `view_depth`.
 [[nodiscard]] u32 select_cascade(const std::vector<f32>& splits, f32 view_depth);
+
+// View-projection for a directional light shadow pass: an orthographic box of
+// half-size `radius` centered on `center`, looking along `light_dir`, with the
+// light placed `depth` back so the whole scene fits in front of it. Used to
+// render the scene's depth from the sun's point of view into a shadow map.
+[[nodiscard]] Mat4 light_view_projection(Vec3 light_dir, Vec3 center, f32 radius, f32 depth);
 
 } // namespace shadows
 

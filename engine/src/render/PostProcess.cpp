@@ -31,6 +31,17 @@ u32 select_cascade(const std::vector<f32>& splits, f32 view_depth)
     return splits.empty() ? 0 : static_cast<u32>(splits.size() - 1);
 }
 
+Mat4 light_view_projection(Vec3 light_dir, Vec3 center, f32 radius, f32 depth)
+{
+    const Vec3 dir = normalize(light_dir);
+    // Pick an up vector not parallel to the light direction.
+    const Vec3 up = std::fabs(dir.y) > 0.99f ? Vec3{0.0f, 0.0f, 1.0f} : Vec3{0.0f, 1.0f, 0.0f};
+    const Vec3 eye = center - dir * depth; // step back along the light
+    const Mat4 view = Mat4::look_at(eye, center, up);
+    const Mat4 proj = Mat4::orthographic(-radius, radius, -radius, radius, 0.05f, depth * 2.0f);
+    return proj * view;
+}
+
 } // namespace shadows
 
 namespace postfx {
