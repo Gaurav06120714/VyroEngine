@@ -20,6 +20,8 @@
 #include "vyro/core/Log.hpp"
 #include "vyro/ecs/Registry.hpp"
 #include "vyro/math/Mat4.hpp"
+#include "vyro/net/Coop.hpp"
+#include "vyro/net/UdpTransport.hpp"
 #include "vyro/physics/Collision.hpp"
 #include "vyro/platform/Input.hpp"
 #include "vyro/platform/Window.hpp"
@@ -35,8 +37,10 @@
 #include <cstdlib>
 #include <cmath>
 #include <format>
+#include <memory>
 #include <random>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -370,6 +374,8 @@ void main(){ FragColor=vec4(vColor,1.0); })";
     std::mt19937 rng{1234};
     std::uniform_real_distribution<vyro::f32> spawn_x(-kArenaHalfWidth, kArenaHalfWidth);
 
+    // Co-op spawns the two allies apart so they don't overlap (set below).
+    vyro::f32 coop_start_x = 0.0f;
     auto reset = [&] {
         std::vector<vyro::Entity> doomed;
         world.view<Position>().for_each_entity(
@@ -378,6 +384,7 @@ void main(){ FragColor=vec4(vColor,1.0); })";
             world.destroy_entity(e);
         }
         state = GameState{};
+        state.player_x = coop_start_x;
         VYRO_INFO("Game", "new game");
     };
 
@@ -393,6 +400,39 @@ void main(){ FragColor=vec4(vColor,1.0); })";
         cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
         device.draw(cmd);
     };
+
+    // ── Co-op (V4.4) ─────────────────────────────────────────────────
+    // VYRO_COOP=host|join brings a second networked soldier into the arena
+    // over UDP. Both peers run the same CoopLink: publish my soldier, replicate
+    // the other's. Default (unset) is unchanged single-player.
+    //   host: binds 5555, talks to 127.0.0.1:5556, avatar id 1 (peer 2)
+    //   join: binds 5556, talks to 127.0.0.1:5555, avatar id 2 (peer 1)
+    // Override ports with VYRO_COOP_PORT / VYRO_COOP_PEER_PORT and the peer
+    // host with VYRO_COOP_PEER_HOST.
+    vyro::UdpTransport coop_socket;
+    std::unique_ptr<vyro::CoopLink> coop;
+    if (const char* mode = std::getenv("VYRO_COOP")) {
+        const bool is_host = std::string_view(mode) == "host";
+        const auto env_port = [](const char* name, vyro::u16 fallback) -> vyro::u16 {
+            const char* v = std::getenv(name);
+            return v != nullptr ? static_cast<vyro::u16>(std::atoi(v)) : fallback;
+        };
+        const vyro::u16 local_port = env_port("VYRO_COOP_PORT", is_host ? 5555 : 5556);
+        const vyro::u16 peer_port = env_port("VYRO_COOP_PEER_PORT", is_host ? 5556 : 5555);
+        const char* peer_host_env = std::getenv("VYRO_COOP_PEER_HOST");
+        const std::string peer_host = peer_host_env != nullptr ? peer_host_env : "127.0.0.1";
+
+        if (coop_socket.bind(local_port) && coop_socket.set_peer(peer_host, peer_port)) {
+            coop = std::make_unique<vyro::CoopLink>(coop_socket, is_host ? 1u : 2u,
+                                                    is_host ? 2u : 1u);
+            coop_start_x = is_host ? -2.5f : 2.5f;
+            state.player_x = coop_start_x;
+            VYRO_INFO("Game", "co-op {}: bound {} -> {}:{}", mode, local_port, peer_host,
+                      peer_port);
+        } else {
+            VYRO_WARN("Game", "co-op socket setup failed; staying single-player");
+        }
+    }
 
     auto last = std::chrono::steady_clock::now();
     int last_title_score = -1;
@@ -564,11 +604,27 @@ void main(){ FragColor=vec4(vColor,1.0); })";
 
         draw_mesh(ground, vyro::Mat4::identity(), checker_tex);
 
+        // Co-op tick: publish our soldier and replicate the peer's.
+        if (coop) {
+            coop->set_local_position({state.player_x, 0.0f, kPlayerZ});
+            coop->broadcast();
+            coop->poll();
+        }
+
         // The soldier: feet on the ground, rifle facing the horde (-z).
         const vyro::Mat4 soldier_pose = vyro::Mat4::translation({state.player_x, 0.0f, kPlayerZ})
                                         * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f)
                                         * soldier_fit;
         draw_mesh(soldier, soldier_pose, soldier_tex);
+
+        // The co-op ally: a second soldier at the peer's replicated position.
+        if (coop && coop->peer_connected()) {
+            const vyro::Vec3 ally = coop->peer_position();
+            const vyro::Mat4 ally_pose = vyro::Mat4::translation(ally)
+                                         * vyro::Mat4::rotation({0, 1, 0}, 3.14159265f)
+                                         * soldier_fit;
+            draw_mesh(soldier, ally_pose, soldier_tex);
+        }
 
         // How close is the nearest living zombie to the soldier? The horde
         // shares one skinned stream, so this drives a single walk->bite blend.
