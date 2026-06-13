@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 50 test suites, all green
+ctest --test-dir build              # 51 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -129,7 +129,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ v5.0.0 | done — version bumped to 5.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V5 complete.** | v5.0.0 |
 | ✅ V6.1 GPU Hardware Instancing | done — `OpenGLDevice::draw_instanced` + `render/Instancing.hpp`; the horde draws in one `glDrawElementsInstanced` call from a per-instance model-matrix buffer (replaces the V5.5 CPU batch). | v5.1.0 |
 | ✅ V6.2 Depth-Texture RTT & Soft Shadows | done — depth-texture RTT (`depth_texture` desc flag + GL depth FBO); shadow pass uses it with `shadows::slope_scaled_bias` + 5x5 PCF. | v5.2.0 |
-| **▶ V6.3 Networked Co-op Gameplay** | **DO THIS NEXT** — extend `CoopLink`/`Replication` from avatar-only to shared gameplay: authoritative host simulates+replicates the horde/score/waves; joiner renders and contributes hits. | v5.3.0 |
+| ✅ V6.3 Networked Co-op Gameplay | done — `CoopState.hpp` shares score/wave/hp/horde from an authoritative host; joiner stops spawning and renders the host horde (instanced) + score. | v5.3.0 |
+| **▶ V6.4 Level & Obstacle Pipeline** | **DO THIS NEXT** — authored arenas/obstacles via `scene/SceneSerializer`; obstacles occlude (shadows/render), block movement (physics), and are avoided by the horde (add obstacle-avoidance to `ai/Steering`). | v5.4.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -199,6 +200,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 50 test suites, all green in Release.
-- Latest tag: **v5.2.0** (V6.2 depth-texture shadows complete).
-- **Next action: implement V6.3 Networked Co-op Gameplay** (see §4 and docs/ROADMAP_V6.md).
+- 51 test suites, all green in Release.
+- Latest tag: **v5.3.0** (V6.3 co-op gameplay complete).
+- **Next action: implement V6.4 Level & Obstacle Pipeline** (see §4 and docs/ROADMAP_V6.md).
