@@ -22,6 +22,7 @@
 #include "vyro/ecs/Registry.hpp"
 #include "vyro/math/Mat4.hpp"
 #include "vyro/net/Coop.hpp"
+#include "vyro/net/CoopState.hpp"
 #include "vyro/net/UdpTransport.hpp"
 #include "vyro/physics/Collision.hpp"
 #include "vyro/platform/Input.hpp"
@@ -534,8 +535,14 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     // host with VYRO_COOP_PEER_HOST.
     vyro::UdpTransport coop_socket;
     std::unique_ptr<vyro::CoopLink> coop;
+    // V6.3: a second channel carries the host's authoritative world state
+    // (score/wave/hp/horde) so the joiner sees the same fight.
+    vyro::UdpTransport coop_state_socket;
+    std::unique_ptr<vyro::CoopStateChannel> coop_state;
+    bool coop_is_host = false;
     if (const char* mode = std::getenv("VYRO_COOP")) {
         const bool is_host = std::string_view(mode) == "host";
+        coop_is_host = is_host;
         const auto env_port = [](const char* name, vyro::u16 fallback) -> vyro::u16 {
             const char* v = std::getenv(name);
             return v != nullptr ? static_cast<vyro::u16>(std::atoi(v)) : fallback;
@@ -552,10 +559,17 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             state.player_x = coop_start_x;
             VYRO_INFO("Game", "co-op {}: bound {} -> {}:{}", mode, local_port, peer_host,
                       peer_port);
+            // World-state channel on the +100 ports.
+            if (coop_state_socket.bind(static_cast<vyro::u16>(local_port + 100))
+                && coop_state_socket.set_peer(peer_host,
+                                              static_cast<vyro::u16>(peer_port + 100))) {
+                coop_state = std::make_unique<vyro::CoopStateChannel>(coop_state_socket);
+            }
         } else {
             VYRO_WARN("Game", "co-op socket setup failed; staying single-player");
         }
     }
+    const bool coop_is_joiner = coop && !coop_is_host;
 
     // ── Camera rig (V4.5): smoothed follow + trauma-based screen shake ─
     vyro::ScreenShake camera_shake(1.6f);
@@ -618,9 +632,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             }
 
             // ── Enemy spawning (difficulty ramps with score) ─────────
+            // The co-op joiner does not spawn its own horde — it renders the
+            // host's authoritative one (V6.3).
             state.wave = 1 + state.score / 10;
             state.spawn_timer -= dt;
-            if (state.spawn_timer <= 0.0f) {
+            if (!coop_is_joiner && state.spawn_timer <= 0.0f) {
                 state.spawn_timer = state.spawn_interval;
                 state.spawn_interval =
                     std::max(0.5f, 1.5f - static_cast<vyro::f32>(state.wave) * 0.15f);
@@ -828,6 +844,21 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             coop->broadcast();
             coop->poll();
         }
+        // Co-op world-state tick (V6.3): host publishes the authoritative
+        // score/wave/hp/horde; joiner consumes it.
+        if (coop_state) {
+            if (coop_is_host) {
+                vyro::CoopWorldState ws;
+                ws.score = state.score;
+                ws.wave = state.wave;
+                ws.host_hp = state.hp;
+                world.view<Position, EnemyTag>().for_each(
+                    [&](Position& p, EnemyTag&) { ws.horde.push_back(p.value); });
+                coop_state->send(std::move(ws));
+            } else {
+                coop_state->poll();
+            }
+        }
 
         // The soldier: feet on the ground, rifle facing the horde (-z).
         const vyro::Mat4 soldier_pose = vyro::Mat4::translation({state.player_x, 0.0f, kPlayerZ})
@@ -873,33 +904,47 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             device.update_buffer(zombie.vbo, zombie_skinned.data(),
                                  zombie_skinned.size() * sizeof(vyro::Vertex3D));
         }
-        // Collect a model matrix per visible zombie, then draw the whole horde
-        // in ONE batched call (V5.5) instead of one draw per zombie.
+        // Collect a model matrix per visible zombie for the instanced draw.
         horde_xforms.clear();
-        world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& p,
-                                                             EnemyTag&) {
-            if (horde_xforms.size() >= kMaxZombieInstances) {
-                return;
+        if (coop_is_joiner && coop_state && coop_state->connected()) {
+            // Render the host's authoritative horde (V6.3).
+            for (const vyro::Vec3& zp : coop_state->latest().horde) {
+                if (horde_xforms.size() >= kMaxZombieInstances) {
+                    break;
+                }
+                if (!vyro::intersects_sphere(frustum, {zp.x, 0.9f, zp.z}, 1.6f)) {
+                    continue;
+                }
+                const vyro::f32 yaw = std::atan2(state.player_x - zp.x, kPlayerZ - zp.z);
+                horde_xforms.push_back(vyro::Mat4::translation(zp)
+                                       * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit);
             }
-            // Frustum-cull: skip zombies the camera can't see (V5.3).
-            if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
-                return;
-            }
-            vyro::f32 yaw = 0.0f;
-            if (const auto* v = world.get_component<Velocity>(e)) {
-                yaw = std::atan2(v->value.x, v->value.z);
-            }
-            vyro::Mat4 pose = vyro::Mat4::translation(p.value)
-                              * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
-            // Death: tip backward and sink into the ground over the fall.
-            if (const auto* dying = world.get_component<DyingTag>(e)) {
-                const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
-                pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
-                       * vyro::Mat4::rotation({0, 1, 0}, yaw)
-                       * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
-            }
-            horde_xforms.push_back(pose);
-        });
+        } else {
+            world.view<Position, EnemyTag>().for_each_entity([&](vyro::Entity e, Position& p,
+                                                                 EnemyTag&) {
+                if (horde_xforms.size() >= kMaxZombieInstances) {
+                    return;
+                }
+                // Frustum-cull: skip zombies the camera can't see (V5.3).
+                if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 1.6f)) {
+                    return;
+                }
+                vyro::f32 yaw = 0.0f;
+                if (const auto* v = world.get_component<Velocity>(e)) {
+                    yaw = std::atan2(v->value.x, v->value.z);
+                }
+                vyro::Mat4 pose = vyro::Mat4::translation(p.value)
+                                  * vyro::Mat4::rotation({0, 1, 0}, yaw) * zombie_fit;
+                // Death: tip backward and sink into the ground over the fall.
+                if (const auto* dying = world.get_component<DyingTag>(e)) {
+                    const vyro::f32 k = std::min(dying->t / kDeathDuration, 1.0f);
+                    pose = vyro::Mat4::translation({p.value.x, -k * 1.2f, p.value.z})
+                           * vyro::Mat4::rotation({0, 1, 0}, yaw)
+                           * vyro::Mat4::rotation({1, 0, 0}, -k * 1.45f) * zombie_fit;
+                }
+                horde_xforms.push_back(pose);
+            });
+        }
         if (!horde_xforms.empty()) {
             // One instanced draw for the whole visible horde (V6.1).
             device.update_buffer(horde_instance_vbo, horde_xforms.data(),
@@ -952,10 +997,14 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         }
 
         // ── On-screen HUD (V3.4): score, wave, hearts, game over ─────
+        // The joiner shows the host's authoritative score/wave (V6.3).
+        const bool show_host = coop_is_joiner && coop_state && coop_state->connected();
+        const int hud_wave = show_host ? coop_state->latest().wave : state.wave;
+        const int hud_score = show_host ? coop_state->latest().score : state.score;
         hud_verts.clear();
-        vyro::text::build(std::format("WAVE {}", state.wave), -0.97f, 0.95f, 0.07f,
+        vyro::text::build(std::format("WAVE {}", hud_wave), -0.97f, 0.95f, 0.07f,
                           hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
-        vyro::text::build(std::format("SCORE {}", state.score), -0.97f, 0.85f, 0.07f,
+        vyro::text::build(std::format("SCORE {}", hud_score), -0.97f, 0.85f, 0.07f,
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
         vyro::text::build(std::format("TILES {}/{}", tiles_drawn, tiles_total), -0.97f, 0.76f,
                           0.045f, hud_aspect, {0.55f, 0.7f, 0.55f}, hud_verts);
