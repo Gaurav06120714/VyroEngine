@@ -26,10 +26,10 @@
 #include "vyro/physics/Collision.hpp"
 #include "vyro/platform/Input.hpp"
 #include "vyro/platform/Window.hpp"
-#include "vyro/render/Batch.hpp"
 #include "vyro/render/Camera.hpp"
 #include "vyro/render/CameraRig.hpp"
 #include "vyro/render/Frustum.hpp"
+#include "vyro/render/Instancing.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
 #include "vyro/render/ParticleSystem.hpp"
 #include "vyro/render/PostProcess.hpp"
@@ -257,6 +257,20 @@ void main(){ FragColor=vec4(gl_FragCoord.z,0.0,0.0,1.0); })";
     const auto shadow_shader = device.create_shader({shadow_vs, shadow_fs});
     const auto shadow_rt = device.create_render_target({2048, 2048, /*hdr*/ true});
 
+    // Instanced shader (V6.1): per-instance model matrix in attributes 4-7;
+    // same lit + shadow fragment path as the main shader.
+    const char* inst_vs = R"(#version 330 core
+layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
+layout(location=2) in vec2 aUV;  layout(location=3) in vec3 aColor;
+layout(location=4) in vec4 aI0; layout(location=5) in vec4 aI1;
+layout(location=6) in vec4 aI2; layout(location=7) in vec4 aI3;
+uniform mat4 u_vp; uniform mat4 u_lightVP;
+out vec3 vNormal; out vec3 vColor; out vec2 vUV; out vec4 vLightPos;
+void main(){ mat4 model=mat4(aI0,aI1,aI2,aI3);
+gl_Position=u_vp*model*vec4(aPos,1.0); vNormal=mat3(model)*aNormal;
+vColor=aColor; vUV=aUV; vLightPos=u_lightVP*model*vec4(aPos,1.0); })";
+    const auto inst_shader = device.create_shader({inst_vs, fs});
+
     // ── HUD: unlit screen-space text pipeline ────────────────────────
     const char* hud_vs = R"(#version 330 core
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
@@ -410,20 +424,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         zombie_fit = fit_transform(zombie_model.mesh, 1.9f);
     }
 
-    // V5.5: a single batched buffer for the whole horde (drawn in one call).
+    // V6.1: GPU hardware instancing — the skinned zombie mesh is drawn once per
+    // instance, each reading a per-instance model matrix from this buffer.
     constexpr vyro::usize kMaxZombieInstances = 64;
-    const vyro::usize zombie_vert_count = zombie_model.mesh.vertices.size();
-    const vyro::usize zombie_index_count = zombie_model.mesh.indices.size();
-    const auto horde_vbo = device.create_buffer(
-        {vyro::BufferType::Vertex,
-         kMaxZombieInstances * zombie_vert_count * sizeof(vyro::Vertex3D), nullptr});
-    const auto horde_ibo = device.create_buffer(
-        {vyro::BufferType::Index, kMaxZombieInstances * zombie_index_count * sizeof(vyro::u32),
-         nullptr});
-    vyro::MeshData zombie_frame;  // this frame's skinned verts + static indices
-    zombie_frame.indices = zombie_model.mesh.indices;
-    vyro::MeshData horde_batch;             // batched output
-    std::vector<vyro::Mat4> horde_xforms;   // one model matrix per visible zombie
+    const auto horde_instance_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex, vyro::instancing::buffer_bytes(kMaxZombieInstances), nullptr});
+    std::vector<vyro::Mat4> horde_xforms; // one model matrix per visible zombie
 
     auto upload_tex = [&](const vyro::Image& img, bool has) {
         if (has) {
@@ -859,7 +865,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                     static_cast<vyro::usize>(bite_clip), anim_t, bite_weight,
                                     zombie_pose);
             zombie_model.skin(zombie_pose, zombie_skinned);
-            zombie_frame.vertices = zombie_skinned;
+            device.update_buffer(zombie.vbo, zombie_skinned.data(),
+                                 zombie_skinned.size() * sizeof(vyro::Vertex3D));
         }
         // Collect a model matrix per visible zombie, then draw the whole horde
         // in ONE batched call (V5.5) instead of one draw per zombie.
@@ -888,15 +895,25 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             }
             horde_xforms.push_back(pose);
         });
-        if (!horde_xforms.empty() && !zombie_frame.vertices.empty()) {
-            vyro::batch_transform(zombie_frame, horde_xforms, horde_batch);
-            device.update_buffer(horde_vbo, horde_batch.vertices.data(),
-                                 horde_batch.vertices.size() * sizeof(vyro::Vertex3D));
-            device.update_buffer(horde_ibo, horde_batch.indices.data(),
-                                 horde_batch.indices.size() * sizeof(vyro::u32));
-            const GpuMesh horde_mesh{horde_vbo, horde_ibo,
-                                     static_cast<vyro::u32>(horde_batch.indices.size())};
-            draw_mesh(horde_mesh, vyro::Mat4::identity(), zombie_tex);
+        if (!horde_xforms.empty()) {
+            // One instanced draw for the whole visible horde (V6.1).
+            device.update_buffer(horde_instance_vbo, horde_xforms.data(),
+                                 horde_xforms.size() * sizeof(vyro::Mat4));
+            device.set_uniform_mat4(inst_shader, "u_vp", camera.view_projection());
+            device.set_uniform_mat4(inst_shader, "u_lightVP", light_vp);
+            device.set_uniform_vec3(inst_shader, "u_lightDir", sun_dir);
+            device.bind_texture(device.render_target_texture(shadow_rt), 1);
+            device.set_uniform_int(inst_shader, "u_shadowMap", 1);
+            device.set_uniform_int(inst_shader, "u_shadowOn", 1);
+            vyro::DrawCommand cmd;
+            cmd.shader = inst_shader;
+            cmd.vertex_buffer = zombie.vbo;
+            cmd.index_buffer = zombie.ibo;
+            cmd.texture = zombie_tex;
+            cmd.index_count = zombie.index_count;
+            cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+            device.draw_instanced(cmd, horde_instance_vbo,
+                                  static_cast<vyro::u32>(horde_xforms.size()));
         }
         world.view<Position, BulletTag>().for_each([&](Position& p, BulletTag&) {
             if (!vyro::intersects_sphere(frustum, {p.value.x, 0.9f, p.value.z}, 0.4f)) {
