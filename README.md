@@ -35,43 +35,16 @@ and a follow camera with screen shake and post-FX. See the
 [v4.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v4.0.0).
 Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 
-| V4 Phase | Goal | Status | Tag |
-|----------|------|--------|-----|
-| V4.1 — Particle System | Pooled emitters + GPU quads: muzzle flashes and blood bursts | ✅ Complete | v3.1.0 |
-| V4.2 — Audio Files & Music | WAV/MP3/FLAC decoding + looping background music | ✅ Complete | v3.2.0 |
-| V4.3 — Animation Blending | Cross-fade walk → bite on the horde by proximity (`SkinnedModel::pose_blend`) | ✅ Complete | v3.3.0 |
-| V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP (`CoopLink` peer sync) | ✅ Complete | v3.4.0 |
-| V4.5 — Camera & Post-FX | Smoothed follow camera, trauma screen shake, screen-space vignette + damage flash | ✅ Complete | v3.5.0 |
-| **v4.0.0** | All of the above stabilized + released | ✅ Complete | v4.0.0 |
-
 **🎉 VyroEngine 5.0 is complete and released** — the rendering & worlds era:
 offscreen HDR rendering with bloom, real-time shadows, a larger frustum-culled
 world, steering-based horde AI, and single-call draw batching. See the
 [v5.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v5.0.0).
 Full plan: [docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
 
-| V5 Phase | Goal | Status | Tag |
-|----------|------|--------|-----|
-| V5.1 — Render Targets & HDR Bloom | Offscreen render targets in the RHI; HDR scene + real bloom/ACES tonemap pass | ✅ Complete | v4.1.0 |
-| V5.2 — Real-Time Shadows | Directional shadow-map pass: the soldier and horde cast PCF shadows on the ground | ✅ Complete | v4.2.0 |
-| V5.3 — Larger Worlds & Culling | Tiled ground world + Gribb-Hartmann frustum culling of tiles/entities | ✅ Complete | v4.3.0 |
-| V5.4 — Gameplay AI | Seek + separation steering so the horde fans out and surrounds | ✅ Complete | v4.4.0 |
-| V5.5 — GPU-Driven Rendering | The whole horde drawn in one batched call (draw-call counter in HUD) | ✅ Complete | v4.5.0 |
-| **v5.0.0** | All of the above stabilized + released | ✅ Complete | v5.0.0 |
-
 **Planned next: VyroEngine 6.0** — the production-grade era: true GPU hardware
 instancing, a depth-texture shadow pipeline, networked co-op gameplay, an
 authored level/obstacle pipeline, and a measured performance budget. Full plan:
 [docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
-
-| V6 Phase | Goal | Status | Tag |
-|----------|------|--------|-----|
-| V6.1 — GPU Hardware Instancing | Per-instance attributes + `glDrawElementsInstanced`; one instanced horde draw | 📋 Planned | v5.1.0 |
-| V6.2 — Depth-Texture RTT & Soft Shadows | Sampleable depth-texture targets; softer, biased shadows | 📋 Planned | v5.2.0 |
-| V6.3 — Networked Co-op Gameplay | Authoritative host shares horde/score/waves; two players, one fight | 📋 Planned | v5.3.0 |
-| V6.4 — Level & Obstacle Pipeline | Authored arenas/obstacles via SceneSerializer; AI avoidance + physics | 📋 Planned | v5.4.0 |
-| V6.5 — Profiling & Optimization | On-screen profiler/frame graph + hot-path optimization to a budget | 📋 Planned | v5.5.0 |
-| **v6.0.0** | All of the above stabilized + released | 📋 Planned | v6.0.0 |
 
 ---
 
