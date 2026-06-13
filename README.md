@@ -41,10 +41,12 @@ world, steering-based horde AI, and single-call draw batching. See the
 [v5.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v5.0.0).
 Full plan: [docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
 
-**Planned next: VyroEngine 6.0** — the production-grade era: true GPU hardware
-instancing, a depth-texture shadow pipeline, networked co-op gameplay, an
-authored level/obstacle pipeline, and a measured performance budget. Full plan:
-[docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
+**🎉 VyroEngine 6.0 is complete and released** — the production-grade era: true
+GPU hardware instancing, a depth-texture shadow pipeline, networked co-op
+gameplay, an authored level/obstacle pipeline, and an on-screen performance
+profiler. See the
+[v6.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v6.0.0).
+Full plan: [docs/ROADMAP_V6.md](docs/ROADMAP_V6.md).
 
 ---
 
