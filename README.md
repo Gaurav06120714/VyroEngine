@@ -44,10 +44,11 @@ Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 | V4.5 — Camera & Post-FX | Smoothed follow camera, trauma screen shake, screen-space vignette + damage flash | ✅ Complete | v3.5.0 |
 | **v4.0.0** | All of the above stabilized + released | ✅ Complete | v4.0.0 |
 
-**Now in development: VyroEngine 5.0** — the rendering & worlds era: offscreen
-HDR rendering, shadows, larger streamed worlds, smarter enemies, and the
-GPU-driven batching to draw it all fast. Full plan:
-[docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
+**🎉 VyroEngine 5.0 is complete and released** — the rendering & worlds era:
+offscreen HDR rendering with bloom, real-time shadows, a larger frustum-culled
+world, steering-based horde AI, and single-call draw batching. See the
+[v5.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v5.0.0).
+Full plan: [docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
 
 | V5 Phase | Goal | Status | Tag |
 |----------|------|--------|-----|
@@ -56,7 +57,7 @@ GPU-driven batching to draw it all fast. Full plan:
 | V5.3 — Larger Worlds & Culling | Tiled ground world + Gribb-Hartmann frustum culling of tiles/entities | ✅ Complete | v4.3.0 |
 | V5.4 — Gameplay AI | Seek + separation steering so the horde fans out and surrounds | ✅ Complete | v4.4.0 |
 | V5.5 — GPU-Driven Rendering | The whole horde drawn in one batched call (draw-call counter in HUD) | ✅ Complete | v4.5.0 |
-| **v5.0.0** | All of the above stabilized + released | 🔧 Next | v5.0.0 |
+| **v5.0.0** | All of the above stabilized + released | ✅ Complete | v5.0.0 |
 
 ---
 
