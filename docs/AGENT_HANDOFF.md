@@ -104,7 +104,7 @@ Each major version is released on GitHub with a packaged tarball.
   - **v4.4.0** ✅ V5.4 Gameplay AI (`ai::Steering`; seek + separation horde)
   - **v4.5.0** ✅ V5.5 GPU-Driven Rendering (`Batch`; single-call horde)
   - **v5.0.0** ✅ umbrella release (version bump, `cpack` tarballs, GitHub release)
-- **v6.0.0** — production-grade era (released):
+- **v6.0.0** — production-grade era (released): GPU instancing, depth-texture shadows, co-op gameplay, level obstacles, profiling (phases v5.1.0-v5.5.0).
   - **v5.1.0** ✅ V6.1 GPU Hardware Instancing (`draw_instanced`; one instanced horde draw)
   - **v5.2.0** ✅ V6.2 Depth-Texture RTT & Soft Shadows (depth-texture shadow map + PCF)
   - **v5.3.0** ✅ V6.3 Networked Co-op Gameplay (`CoopState`; host-authoritative shared world)
@@ -145,7 +145,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V7.3 Weapons & Damage | done — `game/Weapon.hpp`; pistol/rifle/shotgun loadouts, per-weapon damage, reload. | v6.3.0 |
 | ✅ V7.4 Spatial Audio Mix | done — `audio/Spatial.hpp`; distance-attenuated SFX (mono device; pan ready for stereo). | v6.4.0 |
 | ✅ V7.5 Objectives & Game Flow | done — `game/GameFlow.hpp`; wave objectives, intermissions, victory/defeat. | v6.5.0 |
-| **▶ v7.0.0** | **DO THIS NEXT** — umbrella release: bump version to 7.0.0 (Version.hpp + CMake + test_main), full suite green, `cpack` tarballs, GitHub release. | v7.0.0 |
+| ✅ v7.0.0 | done — version bumped to 7.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V7 complete.** | v7.0.0 |
+| **▶ V8 (TBD)** | **SCOPE NEXT** — V7 (gameplay depth) shipped. Candidate V8 themes: a SceneSerializer-driven level editor, save/load + progression, controller support, more art/biomes, or a Vulkan feature-parity pass. Write `docs/ROADMAP_V8.md` before starting. | v7.1.0+ |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -216,5 +217,5 @@ work into the game and screenshot the result).
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 57 test suites, all green in Release.
-- Latest tag: **v6.5.0** (V7.5 objectives complete; v7.0.0 release next).
-- **Next action: cut the v7.0.0 umbrella release** (version bump + cpack + GitHub release).
+- Latest tag: **v7.0.0** (V7 umbrella release; V7 complete).
+- **Next action: scope V8** — write docs/ROADMAP_V8.md first.
