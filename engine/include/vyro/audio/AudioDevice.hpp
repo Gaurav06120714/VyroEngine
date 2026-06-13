@@ -11,6 +11,9 @@
 
 namespace vyro {
 
+using SoundId = u32;
+inline constexpr SoundId kInvalidSound = 0;
+
 class AudioDevice
 {
 public:
@@ -28,6 +31,13 @@ public:
     // Start a voice playing `samples` (mono 44.1 kHz floats) at `gain`.
     // The samples are copied; the voice frees itself when finished.
     void play(const std::vector<f32>& samples, f32 gain = 1.0f);
+
+    // Start a looping voice (e.g. background music). Returns an id used to
+    // stop it; the samples are copied and replayed seamlessly.
+    SoundId play_looping(const std::vector<f32>& samples, f32 gain = 1.0f);
+
+    // Stop a looping voice started by play_looping.
+    void stop(SoundId id);
 
     // Voices still audible right now.
     [[nodiscard]] u32 active_voices() const;

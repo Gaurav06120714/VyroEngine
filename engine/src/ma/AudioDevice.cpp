@@ -3,8 +3,9 @@
 
 #include "vyro/core/Log.hpp"
 
+// Decoding enabled (WAV/FLAC/MP3 built in) so AudioFile can load real files;
+// encoding stays off.
 #define MINIAUDIO_IMPLEMENTATION
-#define MA_NO_DECODING
 #define MA_NO_ENCODING
 #include <miniaudio.h>
 
@@ -17,6 +18,9 @@ struct Voice {
     std::vector<f32> samples;
     usize cursor = 0;
     f32 gain = 1.0f;
+    bool looping = false;
+    SoundId id = kInvalidSound; // non-zero only for looping voices
+    bool stop_requested = false;
 };
 
 struct AudioDevice::Impl {
@@ -25,6 +29,7 @@ struct AudioDevice::Impl {
     std::mutex mutex;
     std::vector<Voice> voices;
     f32 master = 1.0f;
+    SoundId next_id = 1;
 
     static void callback(ma_device* device, void* output, const void* /*input*/,
                          ma_uint32 frame_count)
@@ -34,18 +39,31 @@ struct AudioDevice::Impl {
 
         std::lock_guard<std::mutex> lock(impl->mutex);
         for (Voice& voice : impl->voices) {
-            for (ma_uint32 f = 0; f < frame_count && voice.cursor < voice.samples.size();
-                 ++f, ++voice.cursor) {
+            if (voice.samples.empty()) {
+                continue;
+            }
+            for (ma_uint32 f = 0; f < frame_count; ++f) {
+                if (voice.cursor >= voice.samples.size()) {
+                    if (voice.looping && !voice.stop_requested) {
+                        voice.cursor = 0; // seamless wrap
+                    } else {
+                        break;
+                    }
+                }
                 const f32 s = voice.samples[voice.cursor] * voice.gain * impl->master;
                 out[f * 2 + 0] += s;
                 out[f * 2 + 1] += s;
+                ++voice.cursor;
             }
         }
-        impl->voices.erase(std::remove_if(impl->voices.begin(), impl->voices.end(),
-                                          [](const Voice& v) {
-                                              return v.cursor >= v.samples.size();
-                                          }),
-                           impl->voices.end());
+        impl->voices.erase(
+            std::remove_if(impl->voices.begin(), impl->voices.end(),
+                           [](const Voice& v) {
+                               const bool finished = v.cursor >= v.samples.size();
+                               return (!v.looping && finished)
+                                      || (v.looping && v.stop_requested && finished);
+                           }),
+            impl->voices.end());
     }
 };
 
@@ -101,7 +119,39 @@ void AudioDevice::play(const std::vector<f32>& samples, f32 gain)
         return;
     }
     std::lock_guard<std::mutex> lock(m_impl->mutex);
-    m_impl->voices.push_back(Voice{samples, 0, std::clamp(gain, 0.0f, 4.0f)});
+    Voice v;
+    v.samples = samples;
+    v.gain = std::clamp(gain, 0.0f, 4.0f);
+    m_impl->voices.push_back(std::move(v));
+}
+
+SoundId AudioDevice::play_looping(const std::vector<f32>& samples, f32 gain)
+{
+    if (!m_impl->open || samples.empty()) {
+        return kInvalidSound;
+    }
+    std::lock_guard<std::mutex> lock(m_impl->mutex);
+    Voice v;
+    v.samples = samples;
+    v.gain = std::clamp(gain, 0.0f, 4.0f);
+    v.looping = true;
+    v.id = m_impl->next_id++;
+    m_impl->voices.push_back(std::move(v));
+    return m_impl->voices.back().id;
+}
+
+void AudioDevice::stop(SoundId id)
+{
+    if (id == kInvalidSound) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(m_impl->mutex);
+    for (Voice& v : m_impl->voices) {
+        if (v.id == id) {
+            v.stop_requested = true;
+            v.looping = false; // let it finish the current pass, then retire
+        }
+    }
 }
 
 u32 AudioDevice::active_voices() const
