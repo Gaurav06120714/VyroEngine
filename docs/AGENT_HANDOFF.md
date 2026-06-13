@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 41 test suites, all green
+ctest --test-dir build              # 42 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -105,8 +105,8 @@ Each major version is released on GitHub with a packaged tarball.
 |-------|------|-----|
 | ✅ V4.1 Particle System | done | v3.1.0 |
 | ✅ V4.2 Audio Files & Music | done | v3.2.0 |
-| **▶ V4.3 Animation Blending** | **DO THIS NEXT** — cross-fade idle↔walk↔attack on the zombies. The zombie GLB already loads clips `Zombie|ZombieIdle/Walk/Run/Bite/Crawl` (see logs). Add a blend between two `SkinnedModel` poses (sample clip A and clip B, lerp the joint matrices by a weight) and drive it from gameplay: walk while approaching, **bite when adjacent** to the soldier. `animation/Blend.hpp` already blends *poses*; extend `SkinnedModel` with a `pose_blend(clipA, tA, clipB, tB, weight, out)` and use it in `games/vyrostrike/main.cpp`. | v3.3.0 |
-| V4.4 Co-op Multiplayer | a 2nd networked soldier in Outbreak over the existing `UdpTransport` + `Replication` (NetServer/NetClient already exist and are tested). | v3.4.0 |
+| ✅ V4.3 Animation Blending | done — `SkinnedModel::pose_blend(clipA,tA, clipB,tB, weight, out)` blends two clips' per-node local transforms (lerp translation/scale, nlerp rotation); the game cross-fades the horde walk→bite by proximity to the soldier (see `games/vyrostrike/main.cpp`). | v3.3.0 |
+| **▶ V4.4 Co-op Multiplayer** | **DO THIS NEXT** — a 2nd networked soldier in Outbreak over the existing `UdpTransport` + `Replication` (NetServer/NetClient already exist and are tested). | v3.4.0 |
 | V4.5 Camera & Post-FX | follow camera with smoothing, screen shake on hits, a tonemap/bloom post pass (math already in `render/PostProcess.hpp`/`PBR.hpp`). | v3.5.0 |
 | v4.0.0 | stabilize + GitHub release with `cpack` tarball | v4.0.0 |
 
@@ -178,6 +178,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- Latest tag: **v3.2.0** (V4.2 complete).
-- 41 test suites, all green in Release.
-- **Next action: implement V4.3 Animation Blending** (see §4).
+- 42 test suites, all green in Release.
+- Latest tag: **v3.3.0** (V4.3 Animation Blending complete).
+- **Next action: implement V4.4 Co-op Multiplayer** (see §4).
