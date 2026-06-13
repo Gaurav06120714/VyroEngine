@@ -26,6 +26,7 @@
 #include "vyro/platform/Input.hpp"
 #include "vyro/platform/Window.hpp"
 #include "vyro/render/Camera.hpp"
+#include "vyro/render/CameraRig.hpp"
 #include "vyro/render/OpenGLDevice.hpp"
 #include "vyro/render/ParticleSystem.hpp"
 #include "vyro/render/TextGeometry.hpp"
@@ -239,6 +240,39 @@ in vec3 vColor; out vec4 FragColor;
 void main(){ FragColor=vec4(vColor,1.0); })";
     const auto hud_shader = device.create_shader({hud_vs, hud_fs});
 
+    // ── Post-FX (V4.5): fullscreen screen-space pass ─────────────────
+    // An always-on vignette darkens the edges; u_flash reddens the whole
+    // screen when the soldier is bitten. Drawn last, alpha-blended over the
+    // scene with depth test off. (A true HDR bloom pass needs offscreen render
+    // targets the RHI doesn't expose yet — that's a later engine addition.)
+    const char* post_vs = R"(#version 330 core
+layout(location=0) in vec3 aPos; layout(location=2) in vec2 aUV;
+out vec2 vUV;
+void main(){ gl_Position=vec4(aPos,1.0); vUV=aUV; })";
+    const char* post_fs = R"(#version 330 core
+in vec2 vUV; uniform float u_flash; out vec4 FragColor;
+void main(){
+  float d = distance(vUV, vec2(0.5));
+  float vig = smoothstep(0.45, 0.85, d) * 0.45;
+  float a = clamp(vig + u_flash, 0.0, 0.85);
+  vec3 col = mix(vec3(0.0), vec3(0.75,0.05,0.06), clamp(u_flash / max(a,1e-3), 0.0, 1.0));
+  FragColor = vec4(col, a);
+})";
+    const auto post_shader = device.create_shader({post_vs, post_fs});
+    // A fullscreen quad in NDC; uv 0..1 across the screen for the vignette.
+    auto make_quad_vertex = [](vyro::f32 x, vyro::f32 y, vyro::f32 u, vyro::f32 v) {
+        vyro::Vertex3D vert;
+        vert.position = {x, y, 0.0f};
+        vert.uv = {u, v};
+        return vert;
+    };
+    const std::vector<vyro::Vertex3D> post_verts{
+        make_quad_vertex(-1, -1, 0, 0), make_quad_vertex(1, -1, 1, 0),
+        make_quad_vertex(1, 1, 1, 1),   make_quad_vertex(-1, -1, 0, 0),
+        make_quad_vertex(1, 1, 1, 1),   make_quad_vertex(-1, 1, 0, 1)};
+    const auto post_vbo = device.create_buffer(
+        {vyro::BufferType::Vertex, post_verts.size() * sizeof(vyro::Vertex3D), post_verts.data()});
+
     // ── Particles (V4.1): world-space unlit colored quads ────────────
     const char* part_vs = R"(#version 330 core
 layout(location=0) in vec3 aPos; layout(location=1) in vec3 aNormal;
@@ -434,6 +468,13 @@ void main(){ FragColor=vec4(vColor,1.0); })";
         }
     }
 
+    // ── Camera rig (V4.5): smoothed follow + trauma-based screen shake ─
+    vyro::ScreenShake camera_shake(1.6f);
+    vyro::f32 cam_focus_x = state.player_x; // eases toward the soldier
+    vyro::f32 damage_flash = 0.0f;          // red screen pulse on a bite
+    const vyro::Vec3 base_eye{0.0f, 4.5f, kPlayerZ + 6.5f};
+    const vyro::Vec3 base_target{0.0f, 0.0f, kPlayerZ - 8.0f};
+
     auto last = std::chrono::steady_clock::now();
     int last_title_score = -1;
 
@@ -484,6 +525,7 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                 muzzle.color = {1.0f, 0.85f, 0.35f};
                 muzzle.count = 14;
                 particles.burst(muzzle);
+                camera_shake.add_trauma(0.16f); // a small recoil kick
             }
 
             // ── Enemy spawning (difficulty ramps with score) ─────────
@@ -527,6 +569,8 @@ void main(){ FragColor=vec4(vColor,1.0); })";
                     || ep.value.z > kPlayerZ + 1.5f) {
                     dead.push_back(e);
                     --state.hp;
+                    camera_shake.add_trauma(0.6f); // a hard hit kicks the camera
+                    damage_flash = 0.7f;           // and flashes the screen red
                     if (sound_on) {
                         audio.play(sfx_hit, 1.0f);
                     }
@@ -595,6 +639,14 @@ void main(){ FragColor=vec4(vColor,1.0); })";
 
         // Particles age even after game over so the last bursts finish.
         particles.update(dt);
+
+        // ── Camera rig (V4.5): ease toward the soldier, apply shake ──
+        camera_shake.update(dt);
+        damage_flash = std::max(0.0f, damage_flash - dt * 1.8f);
+        cam_focus_x += (state.player_x - cam_focus_x) * vyro::smooth_factor(6.0f, dt);
+        const vyro::Vec3 shake_off = camera_shake.offset(0.35f);
+        const vyro::Vec3 cam_pan{cam_focus_x + shake_off.x, shake_off.y, 0.0f};
+        camera.set_view(base_eye + cam_pan, base_target + cam_pan);
 
         // ── Render ───────────────────────────────────────────────────
         device.set_viewport(window.framebuffer_width(), window.framebuffer_height());
@@ -729,7 +781,17 @@ void main(){ FragColor=vec4(vColor,1.0); })";
         }
         device.update_buffer(hud_vbo, hud_verts.data(),
                              hud_verts.size() * sizeof(vyro::Vertex3D));
+        // ── Post-FX pass (V4.5): vignette + damage flash over the scene ─
         device.set_depth_test(false);
+        device.set_uniform_float(post_shader, "u_flash", damage_flash);
+        vyro::DrawCommand post_cmd;
+        post_cmd.shader = post_shader;
+        post_cmd.vertex_buffer = post_vbo;
+        post_cmd.vertex_count = static_cast<vyro::u32>(post_verts.size());
+        post_cmd.vertex_format = vyro::VertexFormat::Pos3Normal3UV2;
+        device.draw(post_cmd);
+
+        // HUD on top so score/wave stay crisp above the post effects.
         vyro::DrawCommand hud_cmd;
         hud_cmd.shader = hud_shader;
         hud_cmd.vertex_buffer = hud_vbo;
