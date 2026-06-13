@@ -128,7 +128,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V5.5 GPU-Driven Rendering | done — `render/Batch.hpp` `batch_transform` merges the horde into one buffer; the game draws all visible zombies in a single call and shows a draw-call counter in the HUD. (True GPU hardware instancing — per-instance attributes/`glDrawElementsInstanced` — is a future RHI addition; this is the CPU batch.) | v4.5.0 |
 | ✅ v5.0.0 | done — version bumped to 5.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V5 complete.** | v5.0.0 |
 | ✅ V6.1 GPU Hardware Instancing | done — `OpenGLDevice::draw_instanced` + `render/Instancing.hpp`; the horde draws in one `glDrawElementsInstanced` call from a per-instance model-matrix buffer (replaces the V5.5 CPU batch). | v5.1.0 |
-| **▶ V6.2 Depth-Texture RTT & Soft Shadows** | **DO THIS NEXT** — add a sampleable depth-texture render target to the RHI (depth attachment), move the shadow pass onto it, and improve quality (slope-scaled bias, wider PCF). Replaces V5.2's color-encoded depth. | v5.2.0 |
+| ✅ V6.2 Depth-Texture RTT & Soft Shadows | done — depth-texture RTT (`depth_texture` desc flag + GL depth FBO); shadow pass uses it with `shadows::slope_scaled_bias` + 5x5 PCF. | v5.2.0 |
+| **▶ V6.3 Networked Co-op Gameplay** | **DO THIS NEXT** — extend `CoopLink`/`Replication` from avatar-only to shared gameplay: authoritative host simulates+replicates the horde/score/waves; joiner renders and contributes hits. | v5.3.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -199,5 +200,5 @@ work into the game and screenshot the result).
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
 - 50 test suites, all green in Release.
-- Latest tag: **v5.1.0** (V6.1 GPU instancing complete).
-- **Next action: implement V6.2 Depth-Texture RTT & Soft Shadows** (see §4 and docs/ROADMAP_V6.md).
+- Latest tag: **v5.2.0** (V6.2 depth-texture shadows complete).
+- **Next action: implement V6.3 Networked Co-op Gameplay** (see §4 and docs/ROADMAP_V6.md).
