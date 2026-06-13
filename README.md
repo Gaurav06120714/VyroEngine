@@ -44,9 +44,19 @@ Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
 | V4.5 — Camera & Post-FX | Smoothed follow camera, trauma screen shake, screen-space vignette + damage flash | ✅ Complete | v3.5.0 |
 | **v4.0.0** | All of the above stabilized + released | ✅ Complete | v4.0.0 |
 
-**Next: VyroEngine 5.0** — the rendering & worlds era (real shadows, HDR bloom,
-GPU-driven scenes, larger worlds, gameplay AI). Full plan:
+**Now in development: VyroEngine 5.0** — the rendering & worlds era: offscreen
+HDR rendering, shadows, larger streamed worlds, smarter enemies, and the
+GPU-driven batching to draw it all fast. Full plan:
 [docs/ROADMAP_V5.md](docs/ROADMAP_V5.md).
+
+| V5 Phase | Goal | Status | Tag |
+|----------|------|--------|-----|
+| V5.1 — Render Targets & HDR Bloom | Offscreen render targets in the RHI; HDR scene + real bloom/ACES tonemap pass | 🔧 Next | v4.1.0 |
+| V5.2 — Real-Time Shadows | Directional shadow-map pass over the arena (cascade-split math) | 📋 Planned | v4.2.0 |
+| V5.3 — Larger Worlds & Culling | Chunked/streamed scenes + frustum culling | 📋 Planned | v4.3.0 |
+| V5.4 — Gameplay AI | Steering/flocking horde + behavior state machine | 📋 Planned | v4.4.0 |
+| V5.5 — GPU-Driven Rendering | Instanced horde rendering + draw-call batching | 📋 Planned | v4.5.0 |
+| **v5.0.0** | All of the above stabilized + released | 📋 Planned | v5.0.0 |
 
 ---
 
