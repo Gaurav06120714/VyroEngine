@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(VyroEngine
-    VERSION 6.0.0
+    VERSION 7.0.0
     DESCRIPTION "A modern cross-platform game engine built from scratch"
     LANGUAGES CXX)
 
