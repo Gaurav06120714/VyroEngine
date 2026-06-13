@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 44 test suites, all green
+ctest --test-dir build              # 45 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -117,7 +117,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V4.4 Co-op Multiplayer | done — `net/Coop.hpp` `CoopLink` runs a NetServer+NetClient over one bidirectional transport for symmetric peer sync. The game adds `VYRO_COOP=host\|join` (over `UdpTransport`) to bring a 2nd networked soldier into the arena; run two instances on localhost to see both. Default is single-player. | v3.4.0 |
 | ✅ V4.5 Camera & Post-FX | done — `render/CameraRig.hpp` (`smooth_follow` + trauma `ScreenShake`); the camera eases toward the soldier and shakes on fire/bites. A fullscreen post pass adds a vignette + red damage flash (`OpenGLDevice::set_uniform_float` added for the flash uniform). **NOTE:** a true HDR bloom/tonemap pass still needs offscreen render targets — the RHI has no framebuffer/RTT yet; adding that is a good v4.0.0-era engine task. | v3.5.0 |
 | ✅ v4.0.0 | done — version bumped to 4.0.0, full suite green, `cpack` TGZ tarballs built, GitHub release cut. | v4.0.0 |
-| **▶ V5.1 Render Targets & HDR Bloom** | **DO THIS NEXT** — V5 begins (see `docs/ROADMAP_V5.md`). Add framebuffer/RTT to the RHI, render to an HDR offscreen target, then a real bloom + ACES tonemap pass (math already in `render/PostProcess.hpp`). This finishes the post-FX debt from V4.5. | v4.1.0 |
+| ✅ V5.1 Render Targets & HDR Bloom | done — RHI now has offscreen render targets (`create_render_target`/`bind_render_target`/`render_target_texture`, OpenGL FBO impl). The game renders into an HDR target and a fullscreen pass blooms emissive (>1) particles + ACES-tonemaps + vignette/flash. CPU reference bloom (`postfx::gaussian_kernel`/`blur_separable`/`apply_bloom`) is tested in `test_bloom`. | v4.1.0 |
+| **▶ V5.2 Real-Time Shadows** | **DO THIS NEXT** — directional shadow-map pass over the arena. Render depth from the sun into a depth render target (the RTT now exists), sample it in the scene shader for shadowing. `shadows::cascade_splits`/`select_cascade` math already exists in `render/PostProcess.hpp`. | v4.2.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -187,6 +188,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 44 test suites, all green in Release.
-- Latest tag: **v4.0.0** (V4 umbrella release; V5 next).
-- **Next action: implement V5.1 Render Targets & HDR Bloom** (see §4 and docs/ROADMAP_V5.md).
+- 45 test suites, all green in Release.
+- Latest tag: **v4.1.0** (V5.1 HDR bloom complete).
+- **Next action: implement V5.2 Real-Time Shadows** (see §4 and docs/ROADMAP_V5.md).
