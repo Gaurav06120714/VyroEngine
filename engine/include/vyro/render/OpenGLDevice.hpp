@@ -50,6 +50,10 @@ public:
     // Toggle depth testing (HUD/overlay passes draw with it off).
     void set_depth_test(bool enabled);
 
+    // Draw-call instrumentation (V5.5): count submissions per frame.
+    void reset_draw_count() { m_draw_calls = 0; }
+    [[nodiscard]] u32 draw_call_count() const { return m_draw_calls; }
+
 private:
     struct GLBuffer {
         u32 id = 0;
@@ -70,6 +74,7 @@ private:
     std::unordered_map<u32, GLRenderTarget> m_render_targets; // RHI id -> FBO
     u32 m_vao = 0;
     u32 m_next_id = 1;
+    u32 m_draw_calls = 0;
 };
 
 } // namespace vyro

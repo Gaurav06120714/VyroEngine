@@ -265,6 +265,7 @@ void OpenGLDevice::draw(const DrawCommand& command)
         return;
     }
 
+    ++m_draw_calls;
     glUseProgram(prog->second);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, vbo->second.id);
