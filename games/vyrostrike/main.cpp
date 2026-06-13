@@ -225,24 +225,27 @@ uniform mat4 u_mvp; uniform mat4 u_model; uniform mat4 u_lightVP;
 out vec3 vNormal; out vec3 vColor; out vec2 vUV; out vec4 vLightPos;
 void main(){ gl_Position=u_mvp*vec4(aPos,1.0); vNormal=mat3(u_model)*aNormal;
 vColor=aColor; vUV=aUV; vLightPos=u_lightVP*u_model*vec4(aPos,1.0); })";
+    // V6.2: samples a depth-texture shadow map with slope-scaled bias + 5x5 PCF.
     const char* fs = R"(#version 330 core
 in vec3 vNormal; in vec3 vColor; in vec2 vUV; in vec4 vLightPos; out vec4 FragColor;
 uniform vec3 u_lightDir; uniform sampler2D u_texture; uniform sampler2D u_shadowMap;
 uniform int u_shadowOn;
-float shadow_factor(){
+float shadow_factor(float ndl){
   if(u_shadowOn==0) return 0.0;
   vec3 p = vLightPos.xyz / vLightPos.w * 0.5 + 0.5;
   if(p.z>1.0 || p.x<0.0 || p.x>1.0 || p.y<0.0 || p.y>1.0) return 0.0;
-  float bias=0.0028; float sm=0.0; vec2 ts=1.0/vec2(textureSize(u_shadowMap,0));
-  for(int x=-1;x<=1;++x) for(int y=-1;y<=1;++y){
+  // matches shadows::slope_scaled_bias(ndl, 0.0012, 0.004)
+  float bias=clamp(0.0012+0.004*(1.0-ndl),0.0012,0.0052);
+  float sm=0.0; vec2 ts=1.0/vec2(textureSize(u_shadowMap,0));
+  for(int x=-2;x<=2;++x) for(int y=-2;y<=2;++y){
     float closest=texture(u_shadowMap,p.xy+vec2(x,y)*ts).r;
     sm += (p.z-bias>closest)?1.0:0.0;
   }
-  return sm/9.0;
+  return sm/25.0;
 }
-void main(){ float d=max(dot(normalize(vNormal),normalize(-u_lightDir)),0.0);
+void main(){ vec3 N=normalize(vNormal); float d=max(dot(N,normalize(-u_lightDir)),0.0);
 vec3 base=texture(u_texture,vUV).rgb*vColor;
-float lit=(0.35+0.65*d)*(1.0-0.6*shadow_factor());
+float lit=(0.35+0.65*d)*(1.0-0.6*shadow_factor(d));
 FragColor=vec4(base*lit,1.0); })";
     const auto shader = device.create_shader({vs, fs});
 
@@ -255,7 +258,9 @@ void main(){ gl_Position=u_mvp*vec4(aPos,1.0); })";
 out vec4 FragColor;
 void main(){ FragColor=vec4(gl_FragCoord.z,0.0,0.0,1.0); })";
     const auto shadow_shader = device.create_shader({shadow_vs, shadow_fs});
-    const auto shadow_rt = device.create_render_target({2048, 2048, /*hdr*/ true});
+    // Depth-texture shadow map (V6.2): sampled directly, no color encoding.
+    const auto shadow_rt =
+        device.create_render_target({2048, 2048, /*hdr*/ false, /*depth_texture*/ true});
 
     // Instanced shader (V6.1): per-instance model matrix in attributes 4-7;
     // same lit + shadow fragment path as the main shader.
