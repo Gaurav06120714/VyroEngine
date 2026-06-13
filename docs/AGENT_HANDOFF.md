@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 49 test suites, all green
+ctest --test-dir build              # 50 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -127,7 +127,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V5.4 Gameplay AI | done — `ai/Steering.hpp` (seek + inverse-distance separation, speed-clamped `horde_velocity`, idle/seek/attack `select_state`). The game drives zombies with it so the horde fans out and surrounds. | v4.4.0 |
 | ✅ V5.5 GPU-Driven Rendering | done — `render/Batch.hpp` `batch_transform` merges the horde into one buffer; the game draws all visible zombies in a single call and shows a draw-call counter in the HUD. (True GPU hardware instancing — per-instance attributes/`glDrawElementsInstanced` — is a future RHI addition; this is the CPU batch.) | v4.5.0 |
 | ✅ v5.0.0 | done — version bumped to 5.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V5 complete.** | v5.0.0 |
-| **▶ V6.1 GPU Hardware Instancing** | **DO THIS NEXT** — V6 is planned (see `docs/ROADMAP_V6.md`, "production-grade era"). Start here: add per-instance vertex attributes + an instanced draw path to the RHI/OpenGL backend and draw the horde with one `glDrawElementsInstanced` call, replacing the V5.5 CPU batch. Then V6.2 depth-texture RTT, V6.3 co-op gameplay, V6.4 level pipeline, V6.5 profiling → `v6.0.0`. | v5.1.0 |
+| ✅ V6.1 GPU Hardware Instancing | done — `OpenGLDevice::draw_instanced` + `render/Instancing.hpp`; the horde draws in one `glDrawElementsInstanced` call from a per-instance model-matrix buffer (replaces the V5.5 CPU batch). | v5.1.0 |
+| **▶ V6.2 Depth-Texture RTT & Soft Shadows** | **DO THIS NEXT** — add a sampleable depth-texture render target to the RHI (depth attachment), move the shadow pass onto it, and improve quality (slope-scaled bias, wider PCF). Replaces V5.2's color-encoded depth. | v5.2.0 |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -197,6 +198,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 49 test suites, all green in Release.
-- Latest tag: **v5.0.0** (V5 umbrella release; V5 complete).
-- **Next action: implement V6.1 GPU Hardware Instancing** (see §4 and docs/ROADMAP_V6.md).
+- 50 test suites, all green in Release.
+- Latest tag: **v5.1.0** (V6.1 GPU instancing complete).
+- **Next action: implement V6.2 Depth-Texture RTT & Soft Shadows** (see §4 and docs/ROADMAP_V6.md).
