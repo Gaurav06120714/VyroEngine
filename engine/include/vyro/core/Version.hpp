@@ -5,11 +5,11 @@
 
 namespace vyro {
 
-inline constexpr u32 kVersionMajor = 4;
+inline constexpr u32 kVersionMajor = 5;
 inline constexpr u32 kVersionMinor = 0;
 inline constexpr u32 kVersionPatch = 0;
 
-inline constexpr const char* kVersionString = "4.0.0";
+inline constexpr const char* kVersionString = "5.0.0";
 inline constexpr const char* kEngineName    = "VyroEngine";
 
 } // namespace vyro
