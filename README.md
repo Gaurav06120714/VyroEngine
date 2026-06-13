@@ -26,16 +26,20 @@ GLB/glTF model loader. See the
 
 **🎉 VyroEngine 3.0 is complete and released** — the game-maker era:
 skeletal animation, animated gameplay, real audio output, on-screen text/HUD,
-and scene authoring. Full plan: [docs/ROADMAP_V3.md](docs/ROADMAP_V3.md).
+and scene authoring. See the
+[v3.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v3.0.0).
 
-| V3 Phase | Goal | Status | Tag |
+**Now in development: VyroEngine 4.0** — the juice & performance era.
+Full plan: [docs/ROADMAP_V4.md](docs/ROADMAP_V4.md).
+
+| V4 Phase | Goal | Status | Tag |
 |----------|------|--------|-----|
-| V3.1 — Skeletal Animation | GLB skins + clips, keyframe sampling, CPU skinning — zombies walk | ✅ Complete | v2.1.0 |
-| V3.2 — Animated Gameplay | Death animations, facing, waves & health in Outbreak | ✅ Complete | v2.2.0 |
-| V3.3 — Real Audio Output | miniaudio device + synthesized SFX: the game makes sound | ✅ Complete | v2.3.0 |
-| V3.4 — Text & HUD | Built-in bitmap font: score, hearts, game-over overlay in the viewport | ✅ Complete | v2.4.0 |
-| V3.5 — Scene Authoring | Scene save/load + editor create/delete/save workflow | ✅ Complete | v2.5.0 |
-| **v3.0.0** | All of the above stabilized | ✅ Released | v3.0.0 |
+| V4.1 — Particle System | Pooled emitters + GPU quads: muzzle flashes and blood bursts | 🔧 In Progress | v3.1.0 |
+| V4.2 — Audio Files & Music | WAV/OGG decoding + looping background music | 📋 Planned | v3.2.0 |
+| V4.3 — Animation Blending | Idle ↔ walk ↔ attack blend trees on live characters | 📋 Planned | v3.3.0 |
+| V4.4 — Co-op Multiplayer | A second networked soldier in Outbreak over UDP | 📋 Planned | v3.4.0 |
+| V4.5 — Camera & Post-FX | Follow camera, screen shake, tonemap/bloom pass | 📋 Planned | v3.5.0 |
+| **v4.0.0** | All of the above stabilized | 📋 Planned | v4.0.0 |
 
 ---
 
