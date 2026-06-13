@@ -451,6 +451,20 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
 
     const GpuMesh bullet = upload(device, tinted_cube(0.22f, {1.0f, 0.85f, 0.25f}));
 
+    // ── Level obstacles (V6.4): pillars that occlude, block, and divert ──
+    // A simple authored layout (a future pass loads these via SceneSerializer).
+    const GpuMesh pillar = upload(device, tinted_cube(1.0f, {0.45f, 0.42f, 0.5f}));
+    const std::vector<vyro::ai::Obstacle> obstacles = {
+        {{-4.0f, 0.0f, kPlayerZ - 9.0f}, 1.3f},
+        {{4.5f, 0.0f, kPlayerZ - 12.0f}, 1.3f},
+        {{-1.0f, 0.0f, kPlayerZ - 16.0f}, 1.3f},
+    };
+    // Pillar model: a tall box at the obstacle, base on the ground.
+    const auto pillar_model = [](const vyro::ai::Obstacle& o) {
+        return vyro::Mat4::translation({o.center.x, 0.6f, o.center.z})
+               * vyro::Mat4::scale({o.radius * 1.4f, 3.0f, o.radius * 1.4f});
+    };
+
     const vyro::Image checker = vyro::make_checkerboard(256, 32, 70, 75, 95, 35, 38, 52);
     const auto checker_tex = device.create_texture(
         {checker.width, checker.height, vyro::TextureFormat::RGBA8, checker.pixels.data()});
@@ -607,6 +621,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             }
             state.player_x = std::clamp(state.player_x + move * kPlayerSpeed * dt,
                                         -kArenaHalfWidth, kArenaHalfWidth);
+            // Obstacles block the soldier on the x-axis (V6.4).
+            for (const auto& o : obstacles) {
+                if (std::fabs(kPlayerZ - o.center.z) < o.radius + 0.4f) {
+                    const vyro::f32 dx = state.player_x - o.center.x;
+                    const vyro::f32 minx = o.radius + 0.4f;
+                    if (std::fabs(dx) < minx) {
+                        state.player_x = o.center.x + (dx >= 0.0f ? minx : -minx);
+                    }
+                }
+            }
 
             // ── Shooting ─────────────────────────────────────────────
             state.fire_timer -= dt;
@@ -662,8 +686,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         v.value = {};
                         return;
                     }
-                    v.value = vyro::ai::horde_velocity(p.value, soldier_pos, horde_positions,
-                                                       state.enemy_speed, 2.5f, 1.5f);
+                    vyro::Vec3 desired = vyro::ai::horde_velocity(
+                        p.value, soldier_pos, horde_positions, state.enemy_speed, 2.5f, 1.5f);
+                    desired = desired
+                              + vyro::ai::avoid_obstacles(p.value, obstacles, 2.0f,
+                                                          state.enemy_speed);
+                    const vyro::f32 sp = vyro::length(desired);
+                    if (sp > state.enemy_speed && sp > 1e-5f) {
+                        desired = desired * (state.enemy_speed / sp);
+                    }
+                    v.value = desired;
                     v.value.y = 0.0f;
                 });
 
@@ -801,6 +833,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     }
                     draw_shadow(zombie, pose);
                 });
+            for (const auto& o : obstacles) {
+                draw_shadow(pillar, pillar_model(o));
+            }
         }
 
         // ── Render scene into the offscreen HDR target (V5.1) ────────
@@ -835,6 +870,13 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 }
                 draw_mesh(ground, vyro::Mat4::translation({cx, 0.0f, cz}), checker_tex);
                 ++tiles_drawn;
+            }
+        }
+
+        // Level pillars (V6.4): frustum-culled, lit + shadowed.
+        for (const auto& o : obstacles) {
+            if (vyro::intersects_sphere(frustum, {o.center.x, 1.5f, o.center.z}, 2.6f)) {
+                draw_mesh(pillar, pillar_model(o), white_tex);
             }
         }
 
