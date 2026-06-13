@@ -14,10 +14,10 @@ Think: the openness of Godot, the performance ceiling of Unreal, and the accessi
 
 ## Status
 
-> **🎉 v1.0.0 is complete and released** — all 12 development phases (foundation,
-> ECS, rendering, physics, audio, animation, scripting, editor, networking,
-> advanced graphics, optimization, production) shipped, tested, and packaged.
-> See the [v1.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v1.0.0).
+**🎉 v1.0.0 is complete and released** — all 12 development phases (foundation,
+ECS, rendering, physics, audio, animation, scripting, editor, networking,
+advanced graphics, optimization, production) shipped, tested, and packaged.
+See the [v1.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v1.0.0).
 
 **✅ VyroEngine 2.0 is complete and released** — visual editor (ImGui), UDP
 networking, Lua scripting, a real Vulkan backend (MoltenVK), texturing, and a
