@@ -24,6 +24,7 @@
 #include "vyro/core/Random.hpp"
 #include "vyro/game/BossPhase.hpp"
 #include "vyro/game/BossSchedule.hpp"
+#include "vyro/game/Buffs.hpp"
 #include "vyro/game/Combo.hpp"
 #include "vyro/game/Difficulty.hpp"
 #include "vyro/game/Economy.hpp"
@@ -88,6 +89,9 @@ struct EnemyTag {};
 struct PickupItem {
     vyro::game::PickupKind kind = vyro::game::PickupKind::Ammo;
 }; // V8.2
+struct BuffPickup {
+    vyro::game::BuffKind kind = vyro::game::BuffKind::RapidFire;
+}; // V10.4
 // A zombie that has been shot: plays out its death (fall + sink) then despawns.
 struct DyingTag {
     vyro::f32 t = 0.0f;
@@ -534,6 +538,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         upload(device, tinted_cube(0.4f, {0.2f, 0.95f, 0.3f})),
         upload(device, tinted_cube(0.4f, {1.0f, 0.85f, 0.2f})),
         upload(device, tinted_cube(0.4f, {0.3f, 0.8f, 1.0f}))};
+    // Buff power-up cubes (V10.4): magenta rapid-fire, red double-damage
+    // (emissive >1 so they glow through bloom).
+    const std::array<GpuMesh, 2> buff_meshes{
+        upload(device, tinted_cube(0.5f, {1.4f, 0.2f, 1.4f})),
+        upload(device, tinted_cube(0.5f, {1.5f, 0.2f, 0.2f}))};
 
     // ── Level obstacles (V6.4): pillars that occlude, block, and divert ──
     // A simple authored layout (a future pass loads these via SceneSerializer).
@@ -604,6 +613,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     vyro::game::Economy economy;   // V9.1: credits earned from kills
     vyro::game::Upgrades upgrades; // V9.2: between-wave purchases
     vyro::game::Combo combo;       // V9.4: rapid-kill multiplier
+    vyro::game::Buffs buffs;       // V10.4: timed power-ups
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -639,6 +649,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         economy.reset();
         upgrades.reset();
         combo.reset();
+        buffs.reset();
         result_saved = false;
         boss_spawned_wave = 0;
         run_max_mult = 1;
@@ -837,7 +848,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 weapons[static_cast<vyro::usize>(current_weapon)].begin_reload();
             }
             vyro::game::Weapon& weapon = weapons[static_cast<vyro::usize>(current_weapon)];
-            weapon.update(dt * upgrades.fire_rate_factor()); // V9.2: faster cooldown
+            weapon.update(dt * upgrades.fire_rate_factor()
+                          * buffs.fire_rate_mult()); // V9.2/V10.4: faster cooldown
             if (input.is_action_down("Fire") && weapon.fire()) {
                 const auto& ws = weapon.stats();
                 if (sound_on) {
@@ -854,7 +866,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                      -std::cos(ang) * kBulletSpeed}});
                     world.add_component<BulletTag>(b, BulletTag{});
                     world.add_component<BulletDamage>(
-                        b, BulletDamage{ws.damage + upgrades.bonus_damage()}); // V9.2
+                        b, BulletDamage{(ws.damage + upgrades.bonus_damage())
+                                        * buffs.damage_mult()}); // V9.2/V10.4
                 }
                 vyro::BurstParams muzzle;
                 muzzle.origin = {state.player_x, 0.9f, kPlayerZ - 0.8f};
@@ -1053,6 +1066,18 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                 pk, Position{{zpos->value.x, 0.0f, zpos->value.z}});
                             world.add_component<PickupItem>(pk, PickupItem{kind});
                         }
+                        // Buff drop (V10.4): guaranteed from a boss, rare otherwise.
+                        const auto* den = world.get_component<Enemy>(e);
+                        const bool was_boss = den != nullptr && den->boss;
+                        const auto broll = std::uniform_real_distribution<vyro::f32>(0, 1)(rng);
+                        if (was_boss || broll < 0.05f) {
+                            const auto bk = broll < 0.5f ? vyro::game::BuffKind::RapidFire
+                                                         : vyro::game::BuffKind::DoubleDamage;
+                            const auto bp = world.create_entity();
+                            world.add_component<Position>(
+                                bp, Position{{zpos->value.x + 0.8f, 0.0f, zpos->value.z}});
+                            world.add_component<BuffPickup>(bp, BuffPickup{bk});
+                        }
                     }
                     world.add_component<DyingTag>(e, DyingTag{});
                     if (auto* v = world.get_component<Velocity>(e)) {
@@ -1105,6 +1130,24 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 });
             for (const auto pk : collected) {
                 world.destroy_entity(pk);
+            }
+
+            // ── Buff pickups (V10.4): timed power-ups ────────────────
+            buffs.update(dt);
+            std::vector<vyro::Entity> buffs_taken;
+            world.view<Position, BuffPickup>().for_each_entity(
+                [&](vyro::Entity bp, Position& pp, BuffPickup& item) {
+                    if (vyro::length(pp.value - soldier_at) > 1.2f) {
+                        return;
+                    }
+                    buffs.grant(item.kind, 8.0f);
+                    if (sound_on) {
+                        audio.play(sfx_shot, 0.6f);
+                    }
+                    buffs_taken.push_back(bp);
+                });
+            for (const auto bp : buffs_taken) {
+                world.destroy_entity(bp);
             }
 
             // ── Environmental hazards (V10.1) ────────────────────────
@@ -1286,6 +1329,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 const vyro::Mat4 m = vyro::Mat4::translation({pp.value.x, bob, pp.value.z})
                                      * vyro::Mat4::rotation({0, 1, 0}, t * 2.0f);
                 draw_mesh(pickup_meshes[static_cast<vyro::usize>(item.kind)], m, white_tex);
+            });
+            // Buff power-ups (V10.4): bob + spin, glowing.
+            world.view<Position, BuffPickup>().for_each([&](Position& pp, BuffPickup& item) {
+                if (!vyro::intersects_sphere(frustum, {pp.value.x, 0.8f, pp.value.z}, 0.8f)) {
+                    return;
+                }
+                const vyro::f32 bob = 0.9f + 0.18f * std::sin(t * 3.5f);
+                const vyro::Mat4 m = vyro::Mat4::translation({pp.value.x, bob, pp.value.z})
+                                     * vyro::Mat4::rotation({0, 1, 0}, t * 2.5f);
+                draw_mesh(buff_meshes[static_cast<vyro::usize>(item.kind)], m, white_tex);
             });
         }
 
@@ -1496,6 +1549,25 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         // Credits earned this run (V9.1).
         vyro::text::build(std::format("CREDITS {}", economy.credits()), 0.62f, 0.78f, 0.05f,
                           hud_aspect, {1.0f, 0.9f, 0.4f}, hud_verts);
+        // Active buffs (V10.4): show countdowns at the bottom.
+        {
+            vyro::f32 bx = -0.2f;
+            if (buffs.active(vyro::game::BuffKind::RapidFire)) {
+                vyro::text::build(
+                    std::format("RAPID {}", static_cast<int>(
+                                                buffs.remaining(vyro::game::BuffKind::RapidFire))
+                                                + 1),
+                    bx, -0.78f, 0.05f, hud_aspect, {1.0f, 0.4f, 1.0f}, hud_verts);
+                bx += 0.25f;
+            }
+            if (buffs.active(vyro::game::BuffKind::DoubleDamage)) {
+                vyro::text::build(
+                    std::format("DMGx2 {}",
+                                static_cast<int>(buffs.remaining(vyro::game::BuffKind::DoubleDamage))
+                                    + 1),
+                    bx, -0.78f, 0.05f, hud_aspect, {1.0f, 0.4f, 0.4f}, hud_verts);
+            }
+        }
         // Combo multiplier (V9.4): shown while a streak is active.
         if (combo.multiplier() > 1 && !state.game_over) {
             vyro::text::build(std::format("COMBO x{}", combo.multiplier()), -0.2f, 0.6f, 0.08f,
