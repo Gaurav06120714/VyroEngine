@@ -1,0 +1,35 @@
+# VyroEngine 9.0 Roadmap
+
+**Theme:** v8 made a run *stick*; v9 makes it *grow*. **The progression & bosses
+era** — earn currency, spend it on upgrades between waves, fight bosses, chain
+kills for a combo multiplier, and unlock medals. All headless-testable systems.
+
+## Phases
+
+| Phase | Goal | Tag |
+|-------|------|-----|
+| V9.1 — Currency & Economy | Kills award credits; an `Economy` tracks the balance with earn/spend/affordability. Foundation for the upgrade shop. | v8.1.0 |
+| V9.2 — Player Upgrades | Buy upgrades (damage, fire rate, max health, move speed) between waves; an `Upgrades` model stacks tiers with caps and applies modifiers. | v8.2.0 |
+| V9.3 — Boss Enemies | A boss spawns every N waves: high health, large, worth big credits/score; a `BossSchedule` decides when and how tough. | v8.3.0 |
+| V9.4 — Combo Multiplier | Rapid kills build a score/credit multiplier that decays over time; a `Combo` model handles build, decay and tiers. | v8.4.0 |
+| V9.5 — Medals & Milestones | Run milestones (e.g. flawless wave, sharpshooter, big combo) unlock persisted medals shown on the results screen. | v8.5.0 |
+| v9.0.0 release | All of the above stabilized + packaged (`cpack` tarball + GitHub release) | v9.0.0 |
+
+## Per-phase procedure (unchanged — see AGENT_HANDOFF §4)
+1. Implement engine piece(s) as header + .cpp under `engine/`.
+2. Add a behavior-named headless `tests/test_<thing>.cpp`.
+3. Wire it into the game (`games/vyrostrike/main.cpp`) for a visible payoff.
+4. `cmake --build build` → **zero warnings** → `ctest` → **all green**.
+5. Commit **per file** with Conventional Commits, **push after each**.
+6. Capture a screenshot of the running game to verify.
+7. Update README status table; commit; `git tag -a vX.Y.Z`; push tag.
+
+## Rules
+Same as always (`rulz/`): Conventional Commits, one logical change per commit,
+**no AI co-authors ever**, zero-warning builds, deterministic headless tests,
+optional backends isolated from the headless core, a screenshot per phase, a tag
+per phase, source-compatible public APIs.
+
+## Tag scheme
+Following v4–v8: V9 phase tags are `v8.1.0` … `v8.5.0`; the umbrella release is
+**`v9.0.0`**.
