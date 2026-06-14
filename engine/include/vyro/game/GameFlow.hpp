@@ -6,6 +6,9 @@
 #pragma once
 
 #include "vyro/core/Types.hpp"
+#include "vyro/game/WavePlan.hpp"
+
+#include <vector>
 
 namespace vyro::game {
 
@@ -26,6 +29,17 @@ public:
         reset();
     }
 
+    // Data-driven: an explicit per-wave plan (V8.5). Empty falls back to a
+    // single default wave.
+    explicit GameFlow(std::vector<WavePlan> plans) : m_plans(std::move(plans))
+    {
+        if (m_plans.empty()) {
+            m_plans.push_back(WavePlan{});
+        }
+        m_total = static_cast<int>(m_plans.size());
+        reset();
+    }
+
     void reset()
     {
         m_phase = Phase::Fighting;
@@ -35,7 +49,14 @@ public:
     }
 
     // Kill target to clear the current wave.
-    [[nodiscard]] int required() const { return m_base + (m_wave - 1) * m_per_wave; }
+    [[nodiscard]] int required() const
+    {
+        if (!m_plans.empty()) {
+            const usize i = static_cast<usize>(m_wave - 1);
+            return i < m_plans.size() ? m_plans[i].kills : m_plans.back().kills;
+        }
+        return m_base + (m_wave - 1) * m_per_wave;
+    }
 
     void register_kill()
     {
@@ -48,7 +69,9 @@ public:
                 m_phase = Phase::Victory;
             } else {
                 m_phase = Phase::Intermission;
-                m_timer = m_intermission;
+                const usize i = static_cast<usize>(m_wave - 1);
+                m_timer = !m_plans.empty() && i < m_plans.size() ? m_plans[i].intermission
+                                                                 : m_intermission;
             }
         }
     }
@@ -82,6 +105,7 @@ public:
     [[nodiscard]] bool over() const { return m_phase == Phase::Victory || m_phase == Phase::Defeat; }
 
 private:
+    std::vector<WavePlan> m_plans; // data-driven plan (V8.5); empty = use formula
     int m_total = 1;
     int m_base = 5;
     int m_per_wave = 3;
