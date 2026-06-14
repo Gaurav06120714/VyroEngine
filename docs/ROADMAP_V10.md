@@ -8,7 +8,7 @@ weapons, and a real title screen. All headless-testable systems.
 
 | Phase | Goal | Tag |
 |-------|------|-----|
-| V10.1 — Environmental Hazards | Damage zones (e.g. fire patches) that hurt whoever stands in them; an overlap test + tick damage model. | v9.1.0 |
+| ✅ V10.1 — Environmental Hazards | done — `game/Hazard.hpp`; periodic fire patches burn enemies in them and fade out. | v9.1.0 |
 | V10.2 — Boss Phases | A boss enrages as its health drops: phase thresholds change speed and behaviour; a `BossPhase` model decides the phase from health. | v9.2.0 |
 | V10.3 — Weapon Unlocks | Weapons unlock by wave/score milestones; an unlock model gates which loadouts the player can switch to. | v9.3.0 |
 | V10.4 — Timed Power-ups | Special pickups grant temporary buffs (rapid fire, double damage) with countdown timers; a `Buffs` model tracks active effects. | v9.4.0 |
