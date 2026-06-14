@@ -35,6 +35,7 @@
 #include "vyro/game/SaveData.hpp"
 #include "vyro/game/Upgrades.hpp"
 #include "vyro/game/Weapon.hpp"
+#include "vyro/game/WeaponUnlock.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
 #include "vyro/ecs/Registry.hpp"
@@ -819,13 +820,17 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             }
 
             // ── Weapons & shooting (V7.3) ────────────────────────────
-            if (input.is_action_pressed("Weapon1")) {
+            // Switching is gated by weapon unlocks (V10.3).
+            if (input.is_action_pressed("Weapon1")
+                && vyro::game::weapon_unlocked(0, flow.wave())) {
                 current_weapon = 0;
             }
-            if (input.is_action_pressed("Weapon2")) {
+            if (input.is_action_pressed("Weapon2")
+                && vyro::game::weapon_unlocked(1, flow.wave())) {
                 current_weapon = 1;
             }
-            if (input.is_action_pressed("Weapon3")) {
+            if (input.is_action_pressed("Weapon3")
+                && vyro::game::weapon_unlocked(2, flow.wave())) {
                 current_weapon = 2;
             }
             if (input.is_action_pressed("Reload")) {
@@ -1551,6 +1556,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             }
             vyro::text::build(std::format("{} {}", wname, ammo_txt), -0.97f, -0.86f, 0.06f,
                               hud_aspect, {1.0f, 0.8f, 0.4f}, hud_verts);
+            // Unlocked weapon count (V10.3).
+            vyro::text::build(std::format("WPNS {}/3", vyro::game::unlocked_count(flow.wave())),
+                              -0.97f, -0.93f, 0.04f, hud_aspect, {0.6f, 0.7f, 0.8f}, hud_verts);
         }
         // Difficulty indicator (V8.4): TAB cycles it (applies next run).
         vyro::text::build(std::format("{}  TAB", vyro::game::difficulty_mods(save.difficulty).name),
