@@ -24,6 +24,7 @@
 #include "vyro/core/Random.hpp"
 #include "vyro/game/GameFlow.hpp"
 #include "vyro/game/Pickup.hpp"
+#include "vyro/game/RunStats.hpp"
 #include "vyro/game/SaveData.hpp"
 #include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
@@ -559,6 +560,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
 
     // V7.5: a structured run — 5 waves, kill targets that ramp, intermissions.
     vyro::game::GameFlow flow(5, 8, 5, 3.0f);
+    vyro::game::RunStats stats; // V8.3: per-run performance
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -579,6 +581,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         state = GameState{};
         state.player_x = coop_start_x;
         flow.reset();
+        stats.reset();
         result_saved = false;
         VYRO_INFO("Game", "new game");
     };
@@ -703,7 +706,10 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         }
 
         if (!state.game_over) {
-            flow.update(dt); // advance intermission / wave flow (V7.5)
+            flow.update(dt);                                 // advance wave flow (V7.5)
+            if (flow.phase() == vyro::game::Phase::Fighting) {
+                stats.tick(dt); // time survived while fighting (V8.3)
+            }
             // ── Player movement ──────────────────────────────────────
             vyro::f32 move = 0.0f;
             if (input.is_action_down("MoveLeft")) {
@@ -745,6 +751,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 if (sound_on) {
                     audio.play(sfx_shot, 0.8f);
                 }
+                stats.on_shots(ws.pellets); // V8.3: count projectiles fired
                 // Spawn one bullet per pellet, fanned across the spread cone.
                 for (const vyro::f32 ang : vyro::game::spread_angles(ws.pellets, ws.spread)) {
                     const auto b = world.create_entity();
@@ -867,12 +874,14 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         if (vyro::collide(enemy_sphere, vyro::Sphere{bp.value, kBulletRadius})
                                 .colliding) {
                             dead.push_back(b); // bullet is consumed
+                            stats.on_hit();    // V8.3: projectile connected
                             const auto* bd = world.get_component<BulletDamage>(b);
                             en->health -= bd != nullptr ? bd->value : 1;
                             if (en->health <= 0) {
                                 shot.push_back(e);
                                 state.score += kEnemyTypes[en->type].score;
-                                flow.register_kill(); // wave progress (V7.5)
+                                stats.on_kill(en->type); // V8.3
+                                flow.register_kill();    // wave progress (V7.5)
                             }
                         }
                     });
@@ -1358,10 +1367,21 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             const char* sub = "PRESS R TO RESTART";
             const vyro::Vec3 col = won ? vyro::Vec3{0.4f, 0.95f, 0.5f} : vyro::Vec3{0.95f, 0.15f, 0.15f};
             const vyro::f32 w1 = vyro::text::measure(msg, 0.22f, hud_aspect);
+            vyro::text::build(msg, -w1 * 0.5f, 0.34f, 0.22f, hud_aspect, col, hud_verts);
+            // Run summary (V8.3): kills, accuracy, time survived.
+            const std::string l1 = std::format("KILLS {}  ACC {}%", stats.kills,
+                                                static_cast<int>(stats.accuracy() * 100.0f + 0.5f));
+            const std::string l2 = std::format("TIME {}S  SCORE {}",
+                                                static_cast<int>(stats.time), state.score);
+            const vyro::f32 lw1 = vyro::text::measure(l1, 0.07f, hud_aspect);
+            const vyro::f32 lw2 = vyro::text::measure(l2, 0.07f, hud_aspect);
+            vyro::text::build(l1, -lw1 * 0.5f, 0.12f, 0.07f, hud_aspect, {0.9f, 0.9f, 0.9f},
+                              hud_verts);
+            vyro::text::build(l2, -lw2 * 0.5f, 0.02f, 0.07f, hud_aspect, {0.9f, 0.9f, 0.9f},
+                              hud_verts);
             const vyro::f32 w2 = vyro::text::measure(sub, 0.07f, hud_aspect);
-            vyro::text::build(msg, -w1 * 0.5f, 0.2f, 0.22f, hud_aspect, col, hud_verts);
-            vyro::text::build(sub, -w2 * 0.5f, -0.05f, 0.07f, hud_aspect,
-                              {0.9f, 0.9f, 0.9f}, hud_verts);
+            vyro::text::build(sub, -w2 * 0.5f, -0.12f, 0.07f, hud_aspect, {0.7f, 0.7f, 0.8f},
+                              hud_verts);
         }
         if (hud_verts.size() > kHudMaxVerts) {
             hud_verts.resize(kHudMaxVerts);
