@@ -53,6 +53,7 @@
 #include <array>
 #include <cctype>
 #include <chrono>
+#include <fstream>
 #include <cstdlib>
 #include <cmath>
 #include <format>
@@ -560,8 +561,23 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     std::mt19937 rng{1234};
     std::uniform_real_distribution<vyro::f32> spawn_x(-kArenaHalfWidth, kArenaHalfWidth);
 
-    // V7.5: a structured run — 5 waves, kill targets that ramp, intermissions.
-    vyro::game::GameFlow flow(5, 8, 5, 3.0f);
+    // V8.5: waves are data-driven — loaded from "waves.txt" if present, else a
+    // built-in default. Each line is "kills,intermission".
+    const char* kDefaultWaves = "8,3\n13,3\n18,2.5\n24,2.5\n32,2\n";
+    std::string waves_text;
+    {
+        std::ifstream wf("waves.txt");
+        if (wf.is_open()) {
+            waves_text.assign((std::istreambuf_iterator<char>(wf)),
+                              std::istreambuf_iterator<char>());
+        }
+    }
+    auto wave_plans = vyro::game::parse_wave_plans(waves_text.empty() ? kDefaultWaves : waves_text);
+    if (wave_plans.empty()) {
+        wave_plans = vyro::game::parse_wave_plans(kDefaultWaves);
+    }
+    VYRO_INFO("Game", "loaded {} waves", wave_plans.size());
+    vyro::game::GameFlow flow(wave_plans);
     vyro::game::RunStats stats; // V8.3: per-run performance
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
