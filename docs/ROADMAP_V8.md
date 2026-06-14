@@ -10,7 +10,7 @@ wave configs. All headless-testable engine logic.
 | Phase | Goal | Tag |
 |-------|------|-----|
 | ✅ V8.1 — Save & Settings | done — `game/SaveData.hpp` (key=value serialize/parse + file IO); the game loads a profile, shows the high score, and saves best score/wave per run. | v7.1.0 |
-| V8.2 — Pickups & Power-ups | Kills may drop pickups (health / ammo / score-boost); walking over one applies its effect. Drop chance + effect logic are data-driven. | v7.2.0 |
+| ✅ V8.2 — Pickups & Power-ups | done — `game/Pickup.hpp`; kills drop health/ammo/score pickups (weighted), collected on touch (heal/refill/bonus). | v7.2.0 |
 | V8.3 — Run Stats & Summary | Track kills by archetype, shots fired, accuracy and time survived; show a run summary on the victory/defeat screen. | v7.3.0 |
 | V8.4 — Difficulty Modes | Easy / Normal / Hard scaling (enemy speed, health, spawn rate, player health) selected at start and saved. | v7.4.0 |
 | V8.5 — Data-Driven Waves | Author wave plans (counts, archetype weights, intermissions) as data and load them, instead of the hard-coded ramp. | v7.5.0 |
