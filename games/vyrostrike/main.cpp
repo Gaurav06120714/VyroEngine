@@ -27,6 +27,7 @@
 #include "vyro/game/Difficulty.hpp"
 #include "vyro/game/Economy.hpp"
 #include "vyro/game/GameFlow.hpp"
+#include "vyro/game/Medals.hpp"
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
 #include "vyro/game/SaveData.hpp"
@@ -603,6 +604,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     bool result_saved = false;  // save best score/wave once per game-over
     int boss_spawned_wave = 0;  // V9.3: spawn one boss per boss wave
     constexpr int kBossEvery = 3;
+    // V9.5: per-run milestone tracking for medals.
+    int run_max_mult = 1;
+    int run_bosses = 0;
+    bool run_no_damage = true;
+    vyro::u32 run_medals = 0;
     state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4: starting health
     VYRO_INFO("Game", "loaded save: high score {}, best wave {}, difficulty {}", save.high_score,
               save.best_wave, save.difficulty);
@@ -626,6 +632,10 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         combo.reset();
         result_saved = false;
         boss_spawned_wave = 0;
+        run_max_mult = 1;
+        run_bosses = 0;
+        run_no_damage = true;
+        run_medals = 0;
         VYRO_INFO("Game", "new game");
     };
 
@@ -950,6 +960,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     || ep.value.z > kPlayerZ + 1.5f) {
                     dead.push_back(e);
                     --state.hp;
+                    run_no_damage = false;         // V9.5: lost the untouchable run
                     camera_shake.add_trauma(0.6f); // a hard hit kicks the camera
                     damage_flash = 0.7f;           // and flashes the screen red
                     if (sound_on) {
@@ -977,6 +988,10 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                 shot.push_back(e);
                                 combo.on_kill();                  // V9.4: extend streak
                                 const int mult = combo.multiplier();
+                                run_max_mult = std::max(run_max_mult, mult); // V9.5
+                                if (en->boss) {
+                                    ++run_bosses; // V9.5
+                                }
                                 state.score += en->score * mult;
                                 economy.earn(en->credits * mult); // V9.1/V9.3/V9.4 rewards
                                 stats.on_kill(en->type);          // V8.3
@@ -1080,6 +1095,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 if (!result_saved) {
                     save.high_score = std::max(save.high_score, state.score);
                     save.best_wave = std::max(save.best_wave, flow.wave());
+                    // Evaluate + accumulate medals (V9.5).
+                    vyro::game::RunResult rr;
+                    rr.accuracy = stats.accuracy();
+                    rr.max_multiplier = run_max_mult;
+                    rr.took_no_damage = run_no_damage;
+                    rr.bosses_killed = run_bosses;
+                    rr.kills = stats.kills;
+                    rr.victory = flow.phase() == vyro::game::Phase::Victory;
+                    run_medals = vyro::game::evaluate_medals(rr);
+                    save.medals |= run_medals;
                     vyro::game::save_to_file(save_path, save);
                     result_saved = true;
                 }
@@ -1515,6 +1540,21 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             const vyro::f32 w2 = vyro::text::measure(sub, 0.07f, hud_aspect);
             vyro::text::build(sub, -w2 * 0.5f, -0.12f, 0.07f, hud_aspect, {0.7f, 0.7f, 0.8f},
                               hud_verts);
+            // Medals earned this run (V9.5).
+            const vyro::game::MedalBit all_medals[] = {
+                vyro::game::MedalSharpshooter, vyro::game::MedalUntouchable,
+                vyro::game::MedalComboMaster,  vyro::game::MedalBossSlayer,
+                vyro::game::MedalCenturion,    vyro::game::MedalVictor};
+            vyro::f32 my = -0.26f;
+            for (const auto bit : all_medals) {
+                if (run_medals & bit) {
+                    const char* mn = vyro::game::medal_name(bit);
+                    const vyro::f32 mw = vyro::text::measure(mn, 0.055f, hud_aspect);
+                    vyro::text::build(mn, -mw * 0.5f, my, 0.055f, hud_aspect, {1.0f, 0.85f, 0.3f},
+                                      hud_verts);
+                    my -= 0.08f;
+                }
+            }
         }
         if (hud_verts.size() > kHudMaxVerts) {
             hud_verts.resize(kHudMaxVerts);
