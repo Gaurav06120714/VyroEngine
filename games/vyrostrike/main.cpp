@@ -31,6 +31,7 @@
 #include "vyro/game/GameFlow.hpp"
 #include "vyro/game/Hazard.hpp"
 #include "vyro/game/Medals.hpp"
+#include "vyro/game/MenuState.hpp"
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
 #include "vyro/game/SaveData.hpp"
@@ -614,6 +615,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     vyro::game::Upgrades upgrades; // V9.2: between-wave purchases
     vyro::game::Combo combo;       // V9.4: rapid-kill multiplier
     vyro::game::Buffs buffs;       // V10.4: timed power-ups
+    vyro::game::MenuState menu;    // V10.5: title screen before the run
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -776,6 +778,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         if (input.is_action_pressed("Quit")) {
             window.close();
         }
+        // Title screen: SPACE starts a fresh run (V10.5).
+        if (menu.at_title() && input.is_action_pressed("Fire")) {
+            menu.start();
+            reset();
+        }
         if (input.is_action_pressed("Restart")) {
             reset();
         }
@@ -785,7 +792,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             vyro::game::save_to_file(save_path, save);
         }
 
-        if (!state.game_over) {
+        if (menu.playing() && !state.game_over) {
             flow.update(dt);                                 // advance wave flow (V7.5)
             if (flow.phase() == vyro::game::Phase::Fighting) {
                 stats.tick(dt); // time survived while fighting (V8.3)
@@ -1539,6 +1546,46 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         const int hud_wave = show_host ? coop_state->latest().wave : state.wave;
         const int hud_score = show_host ? coop_state->latest().score : state.score;
         hud_verts.clear();
+        if (menu.at_title()) {
+            // ── Title screen (V10.5) ─────────────────────────────────
+            const char* title = "VYROSTRIKE OUTBREAK";
+            const vyro::f32 tw = vyro::text::measure(title, 0.13f, hud_aspect);
+            vyro::text::build(title, -tw * 0.5f, 0.45f, 0.13f, hud_aspect, {0.9f, 0.3f, 0.2f},
+                              hud_verts);
+            const char* s1 = "PRESS SPACE TO START";
+            const vyro::f32 s1w = vyro::text::measure(s1, 0.07f, hud_aspect);
+            vyro::text::build(s1, -s1w * 0.5f, 0.22f, 0.07f, hud_aspect, {0.95f, 0.95f, 0.95f},
+                              hud_verts);
+            const std::string s2 = std::format(
+                "DIFFICULTY {}  TAB", vyro::game::difficulty_mods(save.difficulty).name);
+            const vyro::f32 s2w = vyro::text::measure(s2, 0.06f, hud_aspect);
+            vyro::text::build(s2, -s2w * 0.5f, 0.08f, 0.06f, hud_aspect, {0.7f, 0.85f, 0.7f},
+                              hud_verts);
+            const std::string s3 =
+                std::format("HIGH {}   BEST WAVE {}", save.high_score, save.best_wave);
+            const vyro::f32 s3w = vyro::text::measure(s3, 0.05f, hud_aspect);
+            vyro::text::build(s3, -s3w * 0.5f, -0.04f, 0.05f, hud_aspect, {0.7f, 0.7f, 0.85f},
+                              hud_verts);
+            // Earned medals across all runs.
+            const vyro::game::MedalBit allm[] = {
+                vyro::game::MedalSharpshooter, vyro::game::MedalUntouchable,
+                vyro::game::MedalComboMaster,  vyro::game::MedalBossSlayer,
+                vyro::game::MedalCenturion,    vyro::game::MedalVictor};
+            vyro::f32 medy = -0.2f;
+            for (const auto bit : allm) {
+                if (save.medals & bit) {
+                    const char* mn = vyro::game::medal_name(bit);
+                    const vyro::f32 mw = vyro::text::measure(mn, 0.045f, hud_aspect);
+                    vyro::text::build(mn, -mw * 0.5f, medy, 0.045f, hud_aspect, {1.0f, 0.85f, 0.3f},
+                                      hud_verts);
+                    medy -= 0.07f;
+                }
+            }
+            const char* ctl = "A D MOVE   SPACE FIRE   1 2 3 WEAPON   Q RELOAD";
+            const vyro::f32 cw = vyro::text::measure(ctl, 0.04f, hud_aspect);
+            vyro::text::build(ctl, -cw * 0.5f, -0.6f, 0.04f, hud_aspect, {0.55f, 0.6f, 0.7f},
+                              hud_verts);
+        } else {
         vyro::text::build(std::format("WAVE {}/{}", hud_wave, flow.total_waves()), -0.97f, 0.95f,
                           0.07f, hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
         vyro::text::build(std::format("SCORE {}", hud_score), -0.97f, 0.85f, 0.07f,
@@ -1713,6 +1760,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 }
             }
         }
+        } // end in-game HUD (V10.5 title branch)
         if (hud_verts.size() > kHudMaxVerts) {
             hud_verts.resize(kHudMaxVerts);
         }
