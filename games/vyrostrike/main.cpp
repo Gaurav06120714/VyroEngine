@@ -28,6 +28,7 @@
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
 #include "vyro/game/SaveData.hpp"
+#include "vyro/game/Upgrades.hpp"
 #include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
@@ -238,6 +239,11 @@ int main()
     input.bind_action("Weapon3", vyro::KeyCode::Num3);
     input.bind_action("Reload", vyro::KeyCode::Q);
     input.bind_action("CycleDifficulty", vyro::KeyCode::Tab); // V8.4
+    // Between-wave upgrade shop (V9.2): Z/X/C/V buy damage/fire-rate/health/speed.
+    input.bind_action("BuyDamage", vyro::KeyCode::Z);
+    input.bind_action("BuyFireRate", vyro::KeyCode::X);
+    input.bind_action("BuyHealth", vyro::KeyCode::C);
+    input.bind_action("BuySpeed", vyro::KeyCode::V);
 
     // ── Real audio: synthesized SFX through the output device ────────
     vyro::AudioDevice audio;
@@ -580,7 +586,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     VYRO_INFO("Game", "loaded {} waves", wave_plans.size());
     vyro::game::GameFlow flow(wave_plans);
     vyro::game::RunStats stats;   // V8.3: per-run performance
-    vyro::game::Economy economy;  // V9.1: credits earned from kills
+    vyro::game::Economy economy;   // V9.1: credits earned from kills
+    vyro::game::Upgrades upgrades; // V9.2: between-wave purchases
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -605,6 +612,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         flow.reset();
         stats.reset();
         economy.reset();
+        upgrades.reset();
         result_saved = false;
         VYRO_INFO("Game", "new game");
     };
@@ -738,6 +746,23 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             if (flow.phase() == vyro::game::Phase::Fighting) {
                 stats.tick(dt); // time survived while fighting (V8.3)
             }
+            // Between-wave upgrade shop (V9.2): buy with credits during the
+            // intermission; MaxHealth heals immediately up to the new cap.
+            if (flow.phase() == vyro::game::Phase::Intermission) {
+                if (input.is_action_pressed("BuyDamage")) {
+                    upgrades.buy(economy, vyro::game::UpgradeKind::Damage);
+                }
+                if (input.is_action_pressed("BuyFireRate")) {
+                    upgrades.buy(economy, vyro::game::UpgradeKind::FireRate);
+                }
+                if (input.is_action_pressed("BuyHealth")
+                    && upgrades.buy(economy, vyro::game::UpgradeKind::MaxHealth)) {
+                    ++state.hp;
+                }
+                if (input.is_action_pressed("BuySpeed")) {
+                    upgrades.buy(economy, vyro::game::UpgradeKind::MoveSpeed);
+                }
+            }
             // ── Player movement ──────────────────────────────────────
             vyro::f32 move = 0.0f;
             if (input.is_action_down("MoveLeft")) {
@@ -746,8 +771,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             if (input.is_action_down("MoveRight")) {
                 move += 1.0f;
             }
-            state.player_x = std::clamp(state.player_x + move * kPlayerSpeed * dt,
-                                        -kArenaHalfWidth, kArenaHalfWidth);
+            state.player_x =
+                std::clamp(state.player_x + move * kPlayerSpeed * upgrades.move_speed_mult() * dt,
+                           -kArenaHalfWidth, kArenaHalfWidth);
             // Obstacles block the soldier on the x-axis (V6.4).
             for (const auto& o : obstacles) {
                 if (std::fabs(kPlayerZ - o.center.z) < o.radius + 0.4f) {
@@ -773,7 +799,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 weapons[static_cast<vyro::usize>(current_weapon)].begin_reload();
             }
             vyro::game::Weapon& weapon = weapons[static_cast<vyro::usize>(current_weapon)];
-            weapon.update(dt);
+            weapon.update(dt * upgrades.fire_rate_factor()); // V9.2: faster cooldown
             if (input.is_action_down("Fire") && weapon.fire()) {
                 const auto& ws = weapon.stats();
                 if (sound_on) {
@@ -789,7 +815,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         b, Velocity{{std::sin(ang) * kBulletSpeed, 0.0f,
                                      -std::cos(ang) * kBulletSpeed}});
                     world.add_component<BulletTag>(b, BulletTag{});
-                    world.add_component<BulletDamage>(b, BulletDamage{ws.damage});
+                    world.add_component<BulletDamage>(
+                        b, BulletDamage{ws.damage + upgrades.bonus_damage()}); // V9.2
                 }
                 vyro::BurstParams muzzle;
                 muzzle.origin = {state.player_x, 0.9f, kPlayerZ - 0.8f};
@@ -1335,6 +1362,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 vyro::text::build(std::format("WAVE CLEAR  NEXT IN {}",
                                               static_cast<int>(flow.intermission_left()) + 1),
                                   0.18f, 0.95f, 0.06f, hud_aspect, {0.5f, 0.9f, 0.6f}, hud_verts);
+                // Upgrade shop (V9.2): show buy keys + next-tier costs.
+                using vyro::game::UpgradeKind;
+                vyro::text::build(
+                    std::format("SHOP  Z DMG {}  X RATE {}", upgrades.cost(UpgradeKind::Damage),
+                                upgrades.cost(UpgradeKind::FireRate)),
+                    -0.5f, -0.7f, 0.05f, hud_aspect, {0.9f, 0.9f, 0.5f}, hud_verts);
+                vyro::text::build(
+                    std::format("C HP {}  V SPD {}", upgrades.cost(UpgradeKind::MaxHealth),
+                                upgrades.cost(UpgradeKind::MoveSpeed)),
+                    -0.5f, -0.78f, 0.05f, hud_aspect, {0.9f, 0.9f, 0.5f}, hud_verts);
             } else {
                 vyro::text::build(std::format("KILL {}/{}", flow.kills(), flow.required()), 0.32f,
                                   0.95f, 0.06f, hud_aspect, {0.9f, 0.6f, 0.5f}, hud_verts);
