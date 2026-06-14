@@ -22,6 +22,7 @@
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
+#include "vyro/game/Difficulty.hpp"
 #include "vyro/game/GameFlow.hpp"
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
@@ -234,6 +235,7 @@ int main()
     input.bind_action("Weapon2", vyro::KeyCode::Num2);
     input.bind_action("Weapon3", vyro::KeyCode::Num3);
     input.bind_action("Reload", vyro::KeyCode::Q);
+    input.bind_action("CycleDifficulty", vyro::KeyCode::Tab); // V8.4
 
     // ── Real audio: synthesized SFX through the output device ────────
     vyro::AudioDevice audio;
@@ -566,8 +568,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     const std::string save_path = "vyrostrike.sav";
     vyro::game::SaveData save = vyro::game::load_from_file(save_path);
     bool result_saved = false; // save best score/wave once per game-over
-    VYRO_INFO("Game", "loaded save: high score {}, best wave {}", save.high_score,
-              save.best_wave);
+    state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4: starting health
+    VYRO_INFO("Game", "loaded save: high score {}, best wave {}, difficulty {}", save.high_score,
+              save.best_wave, save.difficulty);
 
     // Co-op spawns the two allies apart so they don't overlap (set below).
     vyro::f32 coop_start_x = 0.0f;
@@ -580,6 +583,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         }
         state = GameState{};
         state.player_x = coop_start_x;
+        state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4
         flow.reset();
         stats.reset();
         result_saved = false;
@@ -704,6 +708,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         if (input.is_action_pressed("Restart")) {
             reset();
         }
+        // Cycle difficulty (V8.4); persisted, applies on the next run.
+        if (input.is_action_pressed("CycleDifficulty")) {
+            save.difficulty = vyro::game::next_difficulty(save.difficulty);
+            vyro::game::save_to_file(save_path, save);
+        }
 
         if (!state.game_over) {
             flow.update(dt);                                 // advance wave flow (V7.5)
@@ -788,7 +797,10 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 state.spawn_timer = state.spawn_interval;
                 state.spawn_interval =
                     std::max(0.5f, 1.5f - static_cast<vyro::f32>(state.wave) * 0.15f);
-                state.enemy_speed = 2.0f + static_cast<vyro::f32>(state.wave) * 0.35f;
+                const auto diff = vyro::game::difficulty_mods(save.difficulty); // V8.4
+                state.enemy_speed =
+                    (2.0f + static_cast<vyro::f32>(state.wave) * 0.35f) * diff.enemy_speed;
+                state.spawn_interval /= diff.spawn_rate; // faster on harder modes
                 // Pick an archetype; runners/brutes get more common with waves.
                 const vyro::f32 ramp = std::min(static_cast<vyro::f32>(state.wave) * 0.05f, 0.6f);
                 const std::array<vyro::f32, 3> weights{
@@ -801,8 +813,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 world.add_component<Position>(e, Position{{spawn_x(rng), 0.0f, kSpawnZ}});
                 world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, state.enemy_speed}});
                 world.add_component<EnemyTag>(e, EnemyTag{});
+                const int hp = std::max(
+                    1, static_cast<int>(std::lround(static_cast<vyro::f32>(et.health)
+                                                    * diff.enemy_health)));
                 world.add_component<Enemy>(
-                    e, Enemy{type, et.health, state.enemy_speed * et.speed_mult});
+                    e, Enemy{type, hp, state.enemy_speed * et.speed_mult});
             }
 
             // Zombie AI (V5.4): seek the soldier while spreading from the pack
@@ -1320,6 +1335,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             vyro::text::build(std::format("{} {}", wname, ammo_txt), -0.97f, -0.86f, 0.06f,
                               hud_aspect, {1.0f, 0.8f, 0.4f}, hud_verts);
         }
+        // Difficulty indicator (V8.4): TAB cycles it (applies next run).
+        vyro::text::build(std::format("{}  TAB", vyro::game::difficulty_mods(save.difficulty).name),
+                          0.66f, -0.92f, 0.045f, hud_aspect, {0.7f, 0.7f, 0.85f}, hud_verts);
         // Profiler readout: FPS / frame time, green under budget, red over.
         const bool over = fps_stats.over_budget(kFrameBudgetMs);
         const vyro::Vec3 perf_col = over ? vyro::Vec3{0.95f, 0.35f, 0.3f}
