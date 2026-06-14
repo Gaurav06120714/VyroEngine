@@ -9,7 +9,7 @@ kills for a combo multiplier, and unlock medals. All headless-testable systems.
 | Phase | Goal | Tag |
 |-------|------|-----|
 | ✅ V9.1 — Currency & Economy | done — `game/Economy.hpp`; kills award credits shown in the HUD (foundation for the shop). | v8.1.0 |
-| V9.2 — Player Upgrades | Buy upgrades (damage, fire rate, max health, move speed) between waves; an `Upgrades` model stacks tiers with caps and applies modifiers. | v8.2.0 |
+| ✅ V9.2 — Player Upgrades | done — `game/Upgrades.hpp`; between-wave shop (Z/X/C/V) buys tiered damage/fire-rate/health/speed with credits. | v8.2.0 |
 | V9.3 — Boss Enemies | A boss spawns every N waves: high health, large, worth big credits/score; a `BossSchedule` decides when and how tough. | v8.3.0 |
 | V9.4 — Combo Multiplier | Rapid kills build a score/credit multiplier that decays over time; a `Combo` model handles build, decay and tiers. | v8.4.0 |
 | V9.5 — Medals & Milestones | Run milestones (e.g. flawless wave, sharpshooter, big combo) unlock persisted medals shown on the results screen. | v8.5.0 |
