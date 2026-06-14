@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 67 test suites, all green
+ctest --test-dir build              # 72 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -148,7 +148,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ v7.0.0 | done — version bumped to 7.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V7 complete.** | v7.0.0 |
 | ✅ V8 Content & Persistence | done — V8.1 save/settings, V8.2 pickups, V8.3 run stats, V8.4 difficulty modes, V8.5 data-driven waves (see `docs/ROADMAP_V8.md`); released as **v8.0.0**. | v7.1.0–v8.0.0 |
 | ✅ V9 Progression & Bosses | done — V9.1 economy, V9.2 upgrade shop, V9.3 bosses, V9.4 combo multiplier, V9.5 medals (see `docs/ROADMAP_V9.md`); released as **v9.0.0**. | v8.1.0–v9.0.0 |
-| **▶ V10 (TBD)** | **SCOPE NEXT** — V9 (progression & bosses) shipped. Candidate V10 themes: a SceneSerializer-driven level/wave editor UI, more biomes/art + a second level, boss special attacks/phases, controller support, or a Vulkan feature-parity pass. Write `docs/ROADMAP_V10.md` before starting. | v9.1.0+ |
+| ✅ V10 Variety & Polish | done — V10.1 hazards, V10.2 boss phases, V10.3 weapon unlocks, V10.4 timed power-ups, V10.5 title menu (see `docs/ROADMAP_V10.md`); released as **v10.0.0**. | v9.1.0–v10.0.0 |
+| **▶ V11 (TBD)** | **SCOPE NEXT** — V10 (variety & polish) shipped. Candidate V11 themes: a second biome/level + level select, a SceneSerializer-driven editor UI, controller support, online leaderboards, or a Vulkan feature-parity pass. Write `docs/ROADMAP_V11.md` before starting. | v10.1.0+ |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -218,6 +219,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 67 test suites, all green in Release.
-- Latest tag: **v9.0.0** (V9 umbrella release; V9 complete).
-- **Next action: scope V10** — write docs/ROADMAP_V10.md first.
+- 72 test suites, all green in Release.
+- Latest tag: **v10.0.0** (V10 umbrella release; V10 complete).
+- **Next action: scope V11** — write docs/ROADMAP_V11.md first.
