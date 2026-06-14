@@ -23,6 +23,7 @@
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
 #include "vyro/game/GameFlow.hpp"
+#include "vyro/game/Pickup.hpp"
 #include "vyro/game/SaveData.hpp"
 #include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
@@ -73,6 +74,9 @@ struct BulletDamage {
     int value = 1;
 }; // V7.3: a bullet carries its weapon's damage
 struct EnemyTag {};
+struct PickupItem {
+    vyro::game::PickupKind kind = vyro::game::PickupKind::Ammo;
+}; // V8.2
 // A zombie that has been shot: plays out its death (fall + sink) then despawns.
 struct DyingTag {
     vyro::f32 t = 0.0f;
@@ -499,6 +503,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
 
     const GpuMesh bullet = upload(device, tinted_cube(0.22f, {1.0f, 0.85f, 0.25f}));
 
+    // Pickup cubes (V8.2): green health, yellow ammo, cyan score-boost.
+    const std::array<GpuMesh, 3> pickup_meshes{
+        upload(device, tinted_cube(0.4f, {0.2f, 0.95f, 0.3f})),
+        upload(device, tinted_cube(0.4f, {1.0f, 0.85f, 0.2f})),
+        upload(device, tinted_cube(0.4f, {0.3f, 0.8f, 1.0f}))};
+
     // ── Level obstacles (V6.4): pillars that occlude, block, and divert ──
     // A simple authored layout (a future pass loads these via SceneSerializer).
     const GpuMesh pillar = upload(device, tinted_cube(1.0f, {0.45f, 0.42f, 0.5f}));
@@ -890,6 +900,18 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         blood.count = 28;
                         particles.burst(blood);
                     }
+                    // Chance to drop a pickup at the kill site (V8.2).
+                    if (!coop_is_joiner && zpos != nullptr) {
+                        const auto roll = std::uniform_real_distribution<vyro::f32>(0, 1)(rng);
+                        if (vyro::game::should_drop(roll, vyro::game::PickupTable{}.drop_chance)) {
+                            const auto kroll = std::uniform_real_distribution<vyro::f32>(0, 1)(rng);
+                            const auto kind = vyro::game::pick_kind(vyro::game::PickupTable{}, kroll);
+                            const auto pk = world.create_entity();
+                            world.add_component<Position>(
+                                pk, Position{{zpos->value.x, 0.0f, zpos->value.z}});
+                            world.add_component<PickupItem>(pk, PickupItem{kind});
+                        }
+                    }
                     world.add_component<DyingTag>(e, DyingTag{});
                     if (auto* v = world.get_component<Velocity>(e)) {
                         v->value = {};
@@ -914,6 +936,35 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             for (const auto e : dead) {
                 world.destroy_entity(e);
             }
+
+            // ── Pickup collection (V8.2) ─────────────────────────────
+            std::vector<vyro::Entity> collected;
+            const vyro::Vec3 soldier_at{state.player_x, 0.0f, kPlayerZ};
+            world.view<Position, PickupItem>().for_each_entity(
+                [&](vyro::Entity pk, Position& pp, PickupItem& item) {
+                    if (vyro::length(pp.value - soldier_at) > 1.1f) {
+                        return;
+                    }
+                    switch (item.kind) {
+                    case vyro::game::PickupKind::Health:
+                        state.hp = std::min(state.hp + vyro::game::kHealthRestore, 3);
+                        break;
+                    case vyro::game::PickupKind::Ammo:
+                        weapons[static_cast<vyro::usize>(current_weapon)].refill();
+                        break;
+                    case vyro::game::PickupKind::ScoreBoost:
+                        state.score += vyro::game::kScoreBoost;
+                        break;
+                    }
+                    if (sound_on) {
+                        audio.play(sfx_shot, 0.5f);
+                    }
+                    collected.push_back(pk);
+                });
+            for (const auto pk : collected) {
+                world.destroy_entity(pk);
+            }
+
             // Victory or defeat freezes gameplay until restart (V7.5).
             if (flow.over()) {
                 state.game_over = true;
@@ -1021,6 +1072,20 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             if (vyro::intersects_sphere(frustum, {o.center.x, 1.5f, o.center.z}, 2.6f)) {
                 draw_mesh(pillar, pillar_model(o), white_tex);
             }
+        }
+
+        // Pickups (V8.2): floating, bobbing, spinning colored cubes.
+        {
+            const float t = std::chrono::duration<float>(now.time_since_epoch()).count();
+            world.view<Position, PickupItem>().for_each([&](Position& pp, PickupItem& item) {
+                if (!vyro::intersects_sphere(frustum, {pp.value.x, 0.8f, pp.value.z}, 0.8f)) {
+                    return;
+                }
+                const vyro::f32 bob = 0.8f + 0.15f * std::sin(t * 3.0f);
+                const vyro::Mat4 m = vyro::Mat4::translation({pp.value.x, bob, pp.value.z})
+                                     * vyro::Mat4::rotation({0, 1, 0}, t * 2.0f);
+                draw_mesh(pickup_meshes[static_cast<vyro::usize>(item.kind)], m, white_tex);
+            });
         }
 
         // Co-op tick: publish our soldier and replicate the peer's.
