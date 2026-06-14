@@ -23,6 +23,7 @@
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
 #include "vyro/game/GameFlow.hpp"
+#include "vyro/game/SaveData.hpp"
 #include "vyro/game/Weapon.hpp"
 #include "vyro/core/Log.hpp"
 #include "vyro/core/Profiler.hpp"
@@ -549,6 +550,13 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     // V7.5: a structured run — 5 waves, kill targets that ramp, intermissions.
     vyro::game::GameFlow flow(5, 8, 5, 3.0f);
 
+    // V8.1: persisted profile (best score/wave + settings) across runs.
+    const std::string save_path = "vyrostrike.sav";
+    vyro::game::SaveData save = vyro::game::load_from_file(save_path);
+    bool result_saved = false; // save best score/wave once per game-over
+    VYRO_INFO("Game", "loaded save: high score {}, best wave {}", save.high_score,
+              save.best_wave);
+
     // Co-op spawns the two allies apart so they don't overlap (set below).
     vyro::f32 coop_start_x = 0.0f;
     auto reset = [&] {
@@ -561,6 +569,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         state = GameState{};
         state.player_x = coop_start_x;
         flow.reset();
+        result_saved = false;
         VYRO_INFO("Game", "new game");
     };
 
@@ -908,9 +917,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             // Victory or defeat freezes gameplay until restart (V7.5).
             if (flow.over()) {
                 state.game_over = true;
-                VYRO_WARN("Game", "{} — score {} (press R to restart)",
+                // Persist best score/wave once per run (V8.1).
+                if (!result_saved) {
+                    save.high_score = std::max(save.high_score, state.score);
+                    save.best_wave = std::max(save.best_wave, flow.wave());
+                    vyro::game::save_to_file(save_path, save);
+                    result_saved = true;
+                }
+                VYRO_WARN("Game", "{} — score {} (best {}) (press R to restart)",
                           flow.phase() == vyro::game::Phase::Victory ? "VICTORY" : "DEFEAT",
-                          state.score);
+                          state.score, save.high_score);
             }
         }
 
@@ -1198,6 +1214,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                           0.07f, hud_aspect, {0.85f, 0.85f, 0.9f}, hud_verts);
         vyro::text::build(std::format("SCORE {}", hud_score), -0.97f, 0.85f, 0.07f,
                           hud_aspect, {1.0f, 0.85f, 0.3f}, hud_verts);
+        // Persisted best score (V8.1).
+        vyro::text::build(std::format("HIGH {}", std::max(save.high_score, hud_score)), 0.62f,
+                          0.85f, 0.05f, hud_aspect, {0.7f, 0.7f, 0.85f}, hud_verts);
         // Objective line (V7.5): kill target, or the intermission countdown.
         if (!coop_is_joiner && !flow.over()) {
             if (flow.phase() == vyro::game::Phase::Intermission) {
