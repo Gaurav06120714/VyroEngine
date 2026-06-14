@@ -32,3 +32,4 @@ __pycache__/
 # Compiled shaders and runtime caches
 *.spv
 imgui.ini
+vyrostrike.sav
