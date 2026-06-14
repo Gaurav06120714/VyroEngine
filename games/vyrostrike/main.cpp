@@ -22,6 +22,7 @@
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
+#include "vyro/game/BossSchedule.hpp"
 #include "vyro/game/Difficulty.hpp"
 #include "vyro/game/Economy.hpp"
 #include "vyro/game/GameFlow.hpp"
@@ -101,11 +102,16 @@ constexpr EnemyType kEnemyTypes[] = {
     {"runner", 1.8f, 1, 0.8f, 2, 25.0f},
     {"brute", 0.6f, 4, 1.5f, 5, 15.0f},
 };
-// Per-enemy data: which archetype and remaining health.
+// Per-enemy data: archetype, remaining health, and per-instance combat stats
+// (so bosses can override size/reward independent of the archetype) — V9.3.
 struct Enemy {
     int type = 0;
     int health = 1;
     vyro::f32 speed = 2.0f;
+    vyro::f32 scale = 1.0f;
+    int score = 1;
+    int credits = 1;
+    bool boss = false;
 };
 
 // ── Tuning ───────────────────────────────────────────────────────────
@@ -592,7 +598,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
     vyro::game::SaveData save = vyro::game::load_from_file(save_path);
-    bool result_saved = false; // save best score/wave once per game-over
+    bool result_saved = false;  // save best score/wave once per game-over
+    int boss_spawned_wave = 0;  // V9.3: spawn one boss per boss wave
+    constexpr int kBossEvery = 3;
     state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4: starting health
     VYRO_INFO("Game", "loaded save: high score {}, best wave {}, difficulty {}", save.high_score,
               save.best_wave, save.difficulty);
@@ -614,6 +622,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         economy.reset();
         upgrades.reset();
         result_saved = false;
+        boss_spawned_wave = 0;
         VYRO_INFO("Game", "new game");
     };
 
@@ -863,7 +872,29 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     1, static_cast<int>(std::lround(static_cast<vyro::f32>(et.health)
                                                     * diff.enemy_health)));
                 world.add_component<Enemy>(
-                    e, Enemy{type, hp, state.enemy_speed * et.speed_mult});
+                    e, Enemy{type, hp, state.enemy_speed * et.speed_mult, et.scale, et.score,
+                             et.score, false});
+            }
+
+            // Boss spawn (V9.3): one boss at the start of each boss wave.
+            if (!coop_is_joiner && flow.spawning()
+                && vyro::game::is_boss_wave(flow.wave(), kBossEvery)
+                && boss_spawned_wave != flow.wave()) {
+                boss_spawned_wave = flow.wave();
+                const auto diff = vyro::game::difficulty_mods(save.difficulty);
+                const auto bs = vyro::game::boss_for_wave(flow.wave());
+                const int bhp = std::max(
+                    1, static_cast<int>(std::lround(static_cast<vyro::f32>(bs.health)
+                                                    * diff.enemy_health)));
+                const vyro::f32 bspeed =
+                    (2.0f + static_cast<vyro::f32>(flow.wave()) * 0.2f) * diff.enemy_speed
+                    * bs.speed_mult;
+                const auto e = world.create_entity();
+                world.add_component<Position>(e, Position{{0.0f, 0.0f, kSpawnZ - 4.0f}});
+                world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, bspeed}});
+                world.add_component<EnemyTag>(e, EnemyTag{});
+                world.add_component<Enemy>(
+                    e, Enemy{0, bhp, bspeed, bs.scale, bs.score, bs.credits, true});
             }
 
             // Zombie AI (V5.4): seek the soldier while spreading from the pack
@@ -906,7 +937,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     return; // already falling — no bites, no double kills
                 }
                 auto* en = world.get_component<Enemy>(e);
-                const vyro::f32 escale = en != nullptr ? kEnemyTypes[en->type].scale : 1.0f;
+                const vyro::f32 escale = en != nullptr ? en->scale : 1.0f;
                 const vyro::Sphere enemy_sphere{ep.value, kEnemyRadius * escale};
 
                 // A zombie that reaches the soldier takes a bite: lose a heart.
@@ -940,10 +971,10 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                             en->health -= bd != nullptr ? bd->value : 1;
                             if (en->health <= 0) {
                                 shot.push_back(e);
-                                state.score += kEnemyTypes[en->type].score;
-                                economy.earn(kEnemyTypes[en->type].score); // V9.1: credits
-                                stats.on_kill(en->type);                   // V8.3
-                                flow.register_kill();                      // wave progress (V7.5)
+                                state.score += en->score;
+                                economy.earn(en->credits); // V9.1/V9.3 rewards
+                                stats.on_kill(en->type);   // V8.3
+                                flow.register_kill();      // wave progress (V7.5)
                             }
                         }
                     });
@@ -1255,9 +1286,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                         if (const auto* v = world.get_component<Velocity>(e)) {
                             yaw = std::atan2(v->value.x, v->value.z);
                         }
-                        // Per-archetype size (brutes bigger, runners smaller) — V7.2.
+                        // Per-enemy size (archetype or boss) — V7.2/V9.3.
                         const auto* en = world.get_component<Enemy>(e);
-                        const vyro::f32 s = en != nullptr ? kEnemyTypes[en->type].scale : 1.0f;
+                        const vyro::f32 s = en != nullptr ? en->scale : 1.0f;
                         const vyro::Mat4 fit = vyro::Mat4::scale({s, s, s}) * zombie_fit;
                         vyro::Mat4 pose = vyro::Mat4::translation(p.value)
                                           * vyro::Mat4::rotation({0, 1, 0}, yaw) * fit;
@@ -1356,6 +1387,19 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         // Credits earned this run (V9.1).
         vyro::text::build(std::format("CREDITS {}", economy.credits()), 0.62f, 0.78f, 0.05f,
                           hud_aspect, {1.0f, 0.9f, 0.4f}, hud_verts);
+        // Boss warning (V9.3): flash when a boss is on the field.
+        bool boss_alive = false;
+        world.view<Enemy>().for_each([&](Enemy& en) {
+            if (en.boss) {
+                boss_alive = true;
+            }
+        });
+        if (boss_alive && !state.game_over) {
+            const char* bw = "!! BOSS !!";
+            const vyro::f32 bww = vyro::text::measure(bw, 0.08f, hud_aspect);
+            vyro::text::build(bw, -bww * 0.5f, 0.7f, 0.08f, hud_aspect, {1.0f, 0.3f, 0.3f},
+                              hud_verts);
+        }
         // Objective line (V7.5): kill target, or the intermission countdown.
         if (!coop_is_joiner && !flow.over()) {
             if (flow.phase() == vyro::game::Phase::Intermission) {
