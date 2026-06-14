@@ -23,6 +23,7 @@
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
 #include "vyro/game/Difficulty.hpp"
+#include "vyro/game/Economy.hpp"
 #include "vyro/game/GameFlow.hpp"
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
@@ -578,7 +579,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     }
     VYRO_INFO("Game", "loaded {} waves", wave_plans.size());
     vyro::game::GameFlow flow(wave_plans);
-    vyro::game::RunStats stats; // V8.3: per-run performance
+    vyro::game::RunStats stats;   // V8.3: per-run performance
+    vyro::game::Economy economy;  // V9.1: credits earned from kills
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -602,6 +604,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4
         flow.reset();
         stats.reset();
+        economy.reset();
         result_saved = false;
         VYRO_INFO("Game", "new game");
     };
@@ -911,8 +914,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                             if (en->health <= 0) {
                                 shot.push_back(e);
                                 state.score += kEnemyTypes[en->type].score;
-                                stats.on_kill(en->type); // V8.3
-                                flow.register_kill();    // wave progress (V7.5)
+                                economy.earn(kEnemyTypes[en->type].score); // V9.1: credits
+                                stats.on_kill(en->type);                   // V8.3
+                                flow.register_kill();                      // wave progress (V7.5)
                             }
                         }
                     });
@@ -1322,6 +1326,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         // Persisted best score (V8.1).
         vyro::text::build(std::format("HIGH {}", std::max(save.high_score, hud_score)), 0.62f,
                           0.85f, 0.05f, hud_aspect, {0.7f, 0.7f, 0.85f}, hud_verts);
+        // Credits earned this run (V9.1).
+        vyro::text::build(std::format("CREDITS {}", economy.credits()), 0.62f, 0.78f, 0.05f,
+                          hud_aspect, {1.0f, 0.9f, 0.4f}, hud_verts);
         // Objective line (V7.5): kill target, or the intermission countdown.
         if (!coop_is_joiner && !flow.over()) {
             if (flow.phase() == vyro::game::Phase::Intermission) {
