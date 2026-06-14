@@ -82,6 +82,14 @@ public:
         }
     }
 
+    // Instantly top up the magazine (e.g. an ammo pickup), cancelling reload.
+    void refill()
+    {
+        m_ammo = m_stats.mag;
+        m_reloading = false;
+        m_reload_left = 0.0f;
+    }
+
     [[nodiscard]] int ammo() const { return m_ammo; }
     [[nodiscard]] bool reloading() const { return m_reloading; }
     [[nodiscard]] const WeaponStats& stats() const { return m_stats; }
