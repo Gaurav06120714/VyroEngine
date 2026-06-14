@@ -66,6 +66,10 @@ medals. See the
 [v9.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v9.0.0).
 Full plan: [docs/ROADMAP_V9.md](docs/ROADMAP_V9.md).
 
+**Now in development: VyroEngine 10.0** — the variety & polish era: environmental
+hazards, boss phases, weapon unlocks, timed power-ups, and a title menu. Full
+plan: [docs/ROADMAP_V10.md](docs/ROADMAP_V10.md).
+
 ---
 
 ## Games built on VyroEngine
