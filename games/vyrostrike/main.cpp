@@ -22,6 +22,7 @@
 #include "vyro/core/Engine.hpp"
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
+#include "vyro/game/BossPhase.hpp"
 #include "vyro/game/BossSchedule.hpp"
 #include "vyro/game/Combo.hpp"
 #include "vyro/game/Difficulty.hpp"
@@ -110,6 +111,7 @@ constexpr EnemyType kEnemyTypes[] = {
 struct Enemy {
     int type = 0;
     int health = 1;
+    int max_health = 1; // V10.2: for boss phase thresholds
     vyro::f32 speed = 2.0f;
     vyro::f32 scale = 1.0f;
     int score = 1;
@@ -894,7 +896,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                     1, static_cast<int>(std::lround(static_cast<vyro::f32>(et.health)
                                                     * diff.enemy_health)));
                 world.add_component<Enemy>(
-                    e, Enemy{type, hp, state.enemy_speed * et.speed_mult, et.scale, et.score,
+                    e, Enemy{type, hp, hp, state.enemy_speed * et.speed_mult, et.scale, et.score,
                              et.score, false});
             }
 
@@ -916,7 +918,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 world.add_component<Velocity>(e, Velocity{{0.0f, 0.0f, bspeed}});
                 world.add_component<EnemyTag>(e, EnemyTag{});
                 world.add_component<Enemy>(
-                    e, Enemy{0, bhp, bspeed, bs.scale, bs.score, bs.credits, true});
+                    e, Enemy{0, bhp, bhp, bspeed, bs.scale, bs.score, bs.credits, true});
             }
 
             // Zombie AI (V5.4): seek the soldier while spreading from the pack
@@ -928,7 +930,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             const vyro::Vec3 soldier_pos{state.player_x, 0.0f, kPlayerZ};
             world.view<Position, Velocity, Enemy>().for_each(
                 [&](Position& p, Velocity& v, Enemy& en) {
-                    const vyro::f32 speed = en.speed; // per-archetype speed (V7.2)
+                    vyro::f32 speed = en.speed; // per-archetype speed (V7.2)
+                    if (en.boss) { // V10.2: bosses speed up as they enrage
+                        speed *= vyro::game::phase_speed_mult(
+                            vyro::game::boss_phase(en.health, en.max_health));
+                    }
                     const vyro::f32 dist = vyro::length(soldier_pos - p.value);
                     const vyro::ai::ZombieState st = vyro::ai::select_state(dist, 60.0f, 1.8f);
                     if (st == vyro::ai::ZombieState::Idle) {
@@ -1490,18 +1496,22 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             vyro::text::build(std::format("COMBO x{}", combo.multiplier()), -0.2f, 0.6f, 0.08f,
                               hud_aspect, {1.0f, 0.6f, 0.2f}, hud_verts);
         }
-        // Boss warning (V9.3): flash when a boss is on the field.
+        // Boss warning (V9.3) + phase (V10.2): flash while a boss is on the field.
         bool boss_alive = false;
+        vyro::game::BossPhase boss_ph = vyro::game::BossPhase::Calm;
         world.view<Enemy>().for_each([&](Enemy& en) {
             if (en.boss) {
                 boss_alive = true;
+                boss_ph = vyro::game::boss_phase(en.health, en.max_health);
             }
         });
         if (boss_alive && !state.game_over) {
-            const char* bw = "!! BOSS !!";
+            const std::string bw = std::format("!! {} !!", vyro::game::phase_name(boss_ph));
             const vyro::f32 bww = vyro::text::measure(bw, 0.08f, hud_aspect);
-            vyro::text::build(bw, -bww * 0.5f, 0.7f, 0.08f, hud_aspect, {1.0f, 0.3f, 0.3f},
-                              hud_verts);
+            const vyro::Vec3 bc = boss_ph == vyro::game::BossPhase::Frenzied
+                                      ? vyro::Vec3{1.0f, 0.15f, 0.15f}
+                                      : vyro::Vec3{1.0f, 0.45f, 0.3f};
+            vyro::text::build(bw, -bww * 0.5f, 0.7f, 0.08f, hud_aspect, bc, hud_verts);
         }
         // Objective line (V7.5): kill target, or the intermission countdown.
         if (!coop_is_joiner && !flow.over()) {
