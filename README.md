@@ -60,9 +60,11 @@ modes, and data-driven waves. See the
 [v8.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v8.0.0).
 Full plan: [docs/ROADMAP_V8.md](docs/ROADMAP_V8.md).
 
-**Now in development: VyroEngine 9.0** — the progression & bosses era: currency,
-between-wave upgrades, boss enemies, a combo multiplier, and medals. Full plan:
-[docs/ROADMAP_V9.md](docs/ROADMAP_V9.md).
+**🎉 VyroEngine 9.0 is complete and released** — the progression & bosses era:
+credits, a between-wave upgrade shop, boss enemies, a combo multiplier, and
+medals. See the
+[v9.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v9.0.0).
+Full plan: [docs/ROADMAP_V9.md](docs/ROADMAP_V9.md).
 
 ---
 
