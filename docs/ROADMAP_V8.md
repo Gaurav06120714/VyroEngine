@@ -13,7 +13,7 @@ wave configs. All headless-testable engine logic.
 | ✅ V8.2 — Pickups & Power-ups | done — `game/Pickup.hpp`; kills drop health/ammo/score pickups (weighted), collected on touch (heal/refill/bonus). | v7.2.0 |
 | ✅ V8.3 — Run Stats & Summary | done — `game/RunStats.hpp`; tracks shots/hits/kills/time + accuracy, shown on the victory/defeat screen. | v7.3.0 |
 | ✅ V8.4 — Difficulty Modes | done — `game/Difficulty.hpp`; easy/normal/hard scale enemy speed/health/spawn + player HP, TAB-cycled and saved. | v7.4.0 
-| V8.5 — Data-Driven Waves | Author wave plans (counts, archetype weights, intermissions) as data and load them, instead of the hard-coded ramp. | v7.5.0 |
+| ✅ V8.5 — Data-Driven Waves | done — `game/WavePlan.hpp` + GameFlow plan support; waves load from `waves.txt` (else a built-in default). | v7.5.0 |
 | v8.0.0 release | All of the above stabilized + packaged (`cpack` tarball + GitHub release) | v8.0.0 |
 
 ## Per-phase procedure (unchanged — see AGENT_HANDOFF §4)
