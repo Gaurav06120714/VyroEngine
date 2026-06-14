@@ -22,8 +22,8 @@ int main()
     std::printf("[tests] VyroEngine core tests\n");
 
     // Version sanity.
-    CHECK(vyro::kVersionMajor == 7);
-    CHECK(std::strcmp(vyro::kVersionString, "7.0.0") == 0);
+    CHECK(vyro::kVersionMajor == 8);
+    CHECK(std::strcmp(vyro::kVersionString, "8.0.0") == 0);
     CHECK(std::strcmp(vyro::kEngineName, "VyroEngine") == 0);
 
     // Engine lifecycle.
