@@ -12,7 +12,7 @@ kills for a combo multiplier, and unlock medals. All headless-testable systems.
 | ✅ V9.2 — Player Upgrades | done — `game/Upgrades.hpp`; between-wave shop (Z/X/C/V) buys tiered damage/fire-rate/health/speed with credits. | v8.2.0 |
 | ✅ V9.3 — Boss Enemies | done — `game/BossSchedule.hpp`; a large, tough, high-reward boss spawns every 3rd wave with a HUD warning. | v8.3.0 |
 | ✅ V9.4 — Combo Multiplier | done — `game/Combo.hpp`; rapid kills build a capped score/credit multiplier that decays, shown in the HUD. | v8.4.0 |
-| V9.5 — Medals & Milestones | Run milestones (e.g. flawless wave, sharpshooter, big combo) unlock persisted medals shown on the results screen. | v8.5.0 |
+| ✅ V9.5 — Medals & Milestones | done — `game/Medals.hpp`; run milestones award persisted medals shown on the results screen. | v8.5.0 |
 | v9.0.0 release | All of the above stabilized + packaged (`cpack` tarball + GitHub release) | v9.0.0 |
 
 ## Per-phase procedure (unchanged — see AGENT_HANDOFF §4)
