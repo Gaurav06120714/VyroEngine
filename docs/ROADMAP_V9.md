@@ -8,7 +8,7 @@ kills for a combo multiplier, and unlock medals. All headless-testable systems.
 
 | Phase | Goal | Tag |
 |-------|------|-----|
-| V9.1 — Currency & Economy | Kills award credits; an `Economy` tracks the balance with earn/spend/affordability. Foundation for the upgrade shop. | v8.1.0 |
+| ✅ V9.1 — Currency & Economy | done — `game/Economy.hpp`; kills award credits shown in the HUD (foundation for the shop). | v8.1.0 |
 | V9.2 — Player Upgrades | Buy upgrades (damage, fire rate, max health, move speed) between waves; an `Upgrades` model stacks tiers with caps and applies modifiers. | v8.2.0 |
 | V9.3 — Boss Enemies | A boss spawns every N waves: high health, large, worth big credits/score; a `BossSchedule` decides when and how tough. | v8.3.0 |
 | V9.4 — Combo Multiplier | Rapid kills build a score/credit multiplier that decays over time; a `Combo` model handles build, decay and tiers. | v8.4.0 |
