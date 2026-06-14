@@ -27,6 +27,7 @@
 #include "vyro/game/Difficulty.hpp"
 #include "vyro/game/Economy.hpp"
 #include "vyro/game/GameFlow.hpp"
+#include "vyro/game/Hazard.hpp"
 #include "vyro/game/Medals.hpp"
 #include "vyro/game/Pickup.hpp"
 #include "vyro/game/RunStats.hpp"
@@ -522,6 +523,9 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
 
     const GpuMesh bullet = upload(device, tinted_cube(0.22f, {1.0f, 0.85f, 0.25f}));
 
+    // Hazard disk (V10.1): emissive orange fire patch (boosted so bloom glows).
+    const GpuMesh hazard_mesh = upload(device, tinted_cube(1.0f, {1.4f, 0.5f, 0.12f}));
+
     // Pickup cubes (V8.2): green health, yellow ammo, cyan score-boost.
     const std::array<GpuMesh, 3> pickup_meshes{
         upload(device, tinted_cube(0.4f, {0.2f, 0.95f, 0.3f})),
@@ -609,6 +613,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     int run_bosses = 0;
     bool run_no_damage = true;
     vyro::u32 run_medals = 0;
+    std::vector<vyro::game::Hazard> hazards; // V10.1: active fire patches
+    vyro::f32 hazard_timer = 6.0f;
     state.hp = vyro::game::difficulty_mods(save.difficulty).player_hp; // V8.4: starting health
     VYRO_INFO("Game", "loaded save: high score {}, best wave {}, difficulty {}", save.high_score,
               save.best_wave, save.difficulty);
@@ -636,6 +642,8 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         run_bosses = 0;
         run_no_damage = true;
         run_medals = 0;
+        hazards.clear();
+        hazard_timer = 6.0f;
         VYRO_INFO("Game", "new game");
     };
 
@@ -1088,6 +1096,55 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                 world.destroy_entity(pk);
             }
 
+            // ── Environmental hazards (V10.1) ────────────────────────
+            // Periodically light a fire patch in the field; enemies inside burn.
+            if (flow.spawning() && !coop_is_joiner) {
+                hazard_timer -= dt;
+                if (hazard_timer <= 0.0f) {
+                    hazard_timer = 8.0f;
+                    vyro::game::Hazard hz;
+                    hz.center = {spawn_x(rng), 0.0f, kPlayerZ - 8.0f
+                                 - std::uniform_real_distribution<vyro::f32>(0, 10)(rng)};
+                    hz.radius = 2.2f;
+                    hz.life = 6.0f;
+                    hz.dps = 6.0f;
+                    hazards.push_back(hz);
+                }
+            }
+            for (auto& hz : hazards) {
+                hz.life -= dt;
+                const int burn = vyro::game::accrue_damage(hz.dps, dt, hz.carry);
+                if (burn <= 0) {
+                    continue;
+                }
+                world.view<Position, Enemy>().for_each_entity(
+                    [&](vyro::Entity e, Position& p, Enemy& en) {
+                        if (en.health <= 0 || world.has_component<DyingTag>(e)
+                            || !vyro::game::hazard_contains(hz, p.value)) {
+                            return;
+                        }
+                        en.health -= burn;
+                        if (en.health <= 0) {
+                            state.score += en.score;
+                            economy.earn(en.credits);
+                            stats.on_kill(en.type);
+                            if (en.boss) {
+                                ++run_bosses;
+                            }
+                            flow.register_kill();
+                            world.add_component<DyingTag>(e, DyingTag{});
+                            if (auto* v = world.get_component<Velocity>(e)) {
+                                v->value = {};
+                            }
+                        }
+                    });
+            }
+            hazards.erase(std::remove_if(hazards.begin(), hazards.end(),
+                                         [](const vyro::game::Hazard& h) {
+                                             return vyro::game::hazard_expired(h);
+                                         }),
+                          hazards.end());
+
             // Victory or defeat freezes gameplay until restart (V7.5).
             if (flow.over()) {
                 state.game_over = true;
@@ -1219,6 +1276,16 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                                      * vyro::Mat4::rotation({0, 1, 0}, t * 2.0f);
                 draw_mesh(pickup_meshes[static_cast<vyro::usize>(item.kind)], m, white_tex);
             });
+        }
+
+        // Hazards (V10.1): flat glowing fire patches, fading as they expire.
+        for (const auto& hz : hazards) {
+            if (!vyro::intersects_sphere(frustum, {hz.center.x, 0.2f, hz.center.z}, hz.radius)) {
+                continue;
+            }
+            const vyro::Mat4 m = vyro::Mat4::translation({hz.center.x, -0.85f, hz.center.z})
+                                 * vyro::Mat4::scale({hz.radius, 0.1f, hz.radius});
+            draw_mesh(hazard_mesh, m, white_tex);
         }
 
         // Co-op tick: publish our soldier and replicate the peer's.
