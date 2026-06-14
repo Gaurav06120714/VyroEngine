@@ -17,6 +17,7 @@ struct SaveData {
     int best_wave = 0;
     f32 master_volume = 1.0f;
     int difficulty = 1; // 0=easy, 1=normal, 2=hard
+    u32 medals = 0;     // V9.5: accumulated medal bitmask
 };
 
 [[nodiscard]] inline std::string serialize(const SaveData& s)
@@ -26,6 +27,7 @@ struct SaveData {
     out += "best_wave=" + std::to_string(s.best_wave) + "\n";
     out += "master_volume=" + std::to_string(s.master_volume) + "\n";
     out += "difficulty=" + std::to_string(s.difficulty) + "\n";
+    out += "medals=" + std::to_string(s.medals) + "\n";
     return out;
 }
 
@@ -55,6 +57,8 @@ struct SaveData {
             s.master_volume = static_cast<f32>(std::atof(value.c_str()));
         } else if (key == "difficulty") {
             s.difficulty = std::atoi(value.c_str());
+        } else if (key == "medals") {
+            s.medals = static_cast<u32>(std::strtoul(value.c_str(), nullptr, 10));
         }
     }
     if (s.high_score < 0) {
