@@ -23,6 +23,7 @@
 #include "vyro/core/FrameStats.hpp"
 #include "vyro/core/Random.hpp"
 #include "vyro/game/BossSchedule.hpp"
+#include "vyro/game/Combo.hpp"
 #include "vyro/game/Difficulty.hpp"
 #include "vyro/game/Economy.hpp"
 #include "vyro/game/GameFlow.hpp"
@@ -594,6 +595,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
     vyro::game::RunStats stats;   // V8.3: per-run performance
     vyro::game::Economy economy;   // V9.1: credits earned from kills
     vyro::game::Upgrades upgrades; // V9.2: between-wave purchases
+    vyro::game::Combo combo;       // V9.4: rapid-kill multiplier
 
     // V8.1: persisted profile (best score/wave + settings) across runs.
     const std::string save_path = "vyrostrike.sav";
@@ -621,6 +623,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         stats.reset();
         economy.reset();
         upgrades.reset();
+        combo.reset();
         result_saved = false;
         boss_spawned_wave = 0;
         VYRO_INFO("Game", "new game");
@@ -755,6 +758,7 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
             if (flow.phase() == vyro::game::Phase::Fighting) {
                 stats.tick(dt); // time survived while fighting (V8.3)
             }
+            combo.update(dt); // decay the kill streak (V9.4)
             // Between-wave upgrade shop (V9.2): buy with credits during the
             // intermission; MaxHealth heals immediately up to the new cap.
             if (flow.phase() == vyro::game::Phase::Intermission) {
@@ -971,10 +975,12 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
                             en->health -= bd != nullptr ? bd->value : 1;
                             if (en->health <= 0) {
                                 shot.push_back(e);
-                                state.score += en->score;
-                                economy.earn(en->credits); // V9.1/V9.3 rewards
-                                stats.on_kill(en->type);   // V8.3
-                                flow.register_kill();      // wave progress (V7.5)
+                                combo.on_kill();                  // V9.4: extend streak
+                                const int mult = combo.multiplier();
+                                state.score += en->score * mult;
+                                economy.earn(en->credits * mult); // V9.1/V9.3/V9.4 rewards
+                                stats.on_kill(en->type);          // V8.3
+                                flow.register_kill();             // wave progress (V7.5)
                             }
                         }
                     });
@@ -1387,6 +1393,11 @@ void main(){ FragColor=vec4(vColor*3.0,1.0); })";
         // Credits earned this run (V9.1).
         vyro::text::build(std::format("CREDITS {}", economy.credits()), 0.62f, 0.78f, 0.05f,
                           hud_aspect, {1.0f, 0.9f, 0.4f}, hud_verts);
+        // Combo multiplier (V9.4): shown while a streak is active.
+        if (combo.multiplier() > 1 && !state.game_over) {
+            vyro::text::build(std::format("COMBO x{}", combo.multiplier()), -0.2f, 0.6f, 0.08f,
+                              hud_aspect, {1.0f, 0.6f, 0.2f}, hud_verts);
+        }
         // Boss warning (V9.3): flash when a boss is on the field.
         bool boss_alive = false;
         world.view<Enemy>().for_each([&](Enemy& en) {
