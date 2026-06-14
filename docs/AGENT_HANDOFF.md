@@ -21,7 +21,7 @@ without re-deriving anything. Read this first.
 cd /Users/gaurav/Desktop/MyProjects/VyroEcosystem/VyroEngine
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build              # 57 test suites, all green
+ctest --test-dir build              # 62 test suites, all green
 ```
 Apps in `build/bin/`:
 - `VyroStrike` — the game (A/D move, Space shoot, R restart, Esc quit; `VYRO_AUTOFIRE=1` env = auto-shoot smoke test)
@@ -146,7 +146,8 @@ Each major version is released on GitHub with a packaged tarball.
 | ✅ V7.4 Spatial Audio Mix | done — `audio/Spatial.hpp`; distance-attenuated SFX (mono device; pan ready for stereo). | v6.4.0 |
 | ✅ V7.5 Objectives & Game Flow | done — `game/GameFlow.hpp`; wave objectives, intermissions, victory/defeat. | v6.5.0 |
 | ✅ v7.0.0 | done — version bumped to 7.0.0, full suite green, `cpack` tarballs built, GitHub release cut. **V7 complete.** | v7.0.0 |
-| **▶ V8 (TBD)** | **SCOPE NEXT** — V7 (gameplay depth) shipped. Candidate V8 themes: a SceneSerializer-driven level editor, save/load + progression, controller support, more art/biomes, or a Vulkan feature-parity pass. Write `docs/ROADMAP_V8.md` before starting. | v7.1.0+ |
+| ✅ V8 Content & Persistence | done — V8.1 save/settings, V8.2 pickups, V8.3 run stats, V8.4 difficulty modes, V8.5 data-driven waves (see `docs/ROADMAP_V8.md`); released as **v8.0.0**. | v7.1.0–v8.0.0 |
+| **▶ V9 (TBD)** | **SCOPE NEXT** — V8 (content & persistence) shipped. Candidate V9 themes: a SceneSerializer-driven level/wave editor UI, boss enemies + special attacks, player upgrades/economy between waves, controller support, or a Vulkan feature-parity pass. Write `docs/ROADMAP_V9.md` before starting. | v8.1.0+ |
 
 **Per-phase procedure (the loop the agent follows every time):**
 1. Implement engine piece(s) as header + .cpp under `engine/`.
@@ -216,6 +217,6 @@ work into the game and screenshot the result).
 ## 7. Current state at handoff
 
 - Branch `main`, fully pushed, **working tree clean** (after `.gitignore` update).
-- 57 test suites, all green in Release.
-- Latest tag: **v7.0.0** (V7 umbrella release; V7 complete).
-- **Next action: scope V8** — write docs/ROADMAP_V8.md first.
+- 62 test suites, all green in Release.
+- Latest tag: **v8.0.0** (V8 umbrella release; V8 complete).
+- **Next action: scope V9** — write docs/ROADMAP_V9.md first.
