@@ -54,9 +54,11 @@ spatial audio, and wave objectives with victory/defeat. See the
 [v7.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v7.0.0).
 Full plan: [docs/ROADMAP_V7.md](docs/ROADMAP_V7.md).
 
-**Now in development: VyroEngine 8.0** — the content & persistence era: saved
-progress and settings, pickups, run stats, difficulty modes, and data-driven
-waves. Full plan: [docs/ROADMAP_V8.md](docs/ROADMAP_V8.md).
+**🎉 VyroEngine 8.0 is complete and released** — the content & persistence era:
+saved high scores & settings, health/ammo/score pickups, run stats, difficulty
+modes, and data-driven waves. See the
+[v8.0.0 release](https://github.com/Gaurav06120714/VyroEngine/releases/tag/v8.0.0).
+Full plan: [docs/ROADMAP_V8.md](docs/ROADMAP_V8.md).
 
 ---
 
